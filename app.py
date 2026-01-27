@@ -311,7 +311,7 @@ def view_admin(db):
 
 # --- 6. GIAO DIỆN HỌC SINH ---
 def view_student(db):
-    st.markdown('<div class="main-header">🔥 TRA CỨU ĐIỂM THI TUY ĐỨC SCHOOL</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">🔥 TRA CỨU ĐIỂM THI</div>', unsafe_allow_html=True)
 
     if 'user' not in st.session_state:
         mid = st.text_input("Nhập Mã Học Sinh:", placeholder="Ví dụ: 2411...").strip()
@@ -324,7 +324,7 @@ def view_student(db):
         u = st.session_state.user
         st.markdown(f"""
         <div class="report-card">
-            <div class="school-name">TRƯỜNG PT DTNT THCS&THPT TUY ĐỨC</div>
+            <div class="school-name">TRƯỜNG THCS & THPT TUY ĐỨC</div>
             <div style="text-align:center; margin-top:10px;">
                 <div style="font-size:18px; font-weight:bold; color:#0056b3;">{u.get('name')}</div>
                 <div>Mã: {u.get('id')} | Lớp: {u.get('cls')}</div>
@@ -354,7 +354,7 @@ def view_student(db):
             # Đánh số thứ tự (STT) chuẩn từ 1
             df['STT'] = range(1, len(df) + 1)
             
-            renames = {'sub': 'Môn', 'tx': 'TX', 'gk': 'GK', 'ck': 'CK', 'tb': 'TBHK2', 'cn': 'CN'}
+            renames = {'sub': 'Môn', 'tx': 'TX', 'gk': 'GK', 'ck': 'CK', 'tb': 'TB', 'cn': 'CN'}
             cols = ['STT', 'Môn', 'TX', 'GK', 'CK', 'TB']
             if sem == 'HK2': cols.append('CN')
             
