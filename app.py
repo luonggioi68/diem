@@ -18,75 +18,86 @@ def init_firebase():
             st.stop()
     return firestore.client()
 
-# --- 2. CSS GIAO DIỆN (MOBILE FIRST) ---
+# --- 2. CSS GIAO DIỆN (CLEAN MOBILE VERSION) ---
 st.markdown("""
 <style>
-    /* Ẩn râu ria mặc định */
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    [data-testid="stSidebar"] {display: none;}
+    /* 1. ẨN CÁC THÀNH PHẦN MẶC ĐỊNH CỦA STREAMLIT */
+    #MainMenu {visibility: hidden; display: none;} /* Ẩn 3 chấm */
+    header {visibility: hidden; display: none;} /* Ẩn thanh trên cùng */
+    footer {visibility: hidden; display: none;} /* Ẩn dòng Made with Streamlit */
+    .stAppDeployButton {display: none;} /* Ẩn nút Deploy/Manage lơ lửng */
+    [data-testid="stToolbar"] {visibility: hidden; display: none;} /* Ẩn thanh công cụ */
+    [data-testid="stSidebar"] {display: none;} /* Ẩn sidebar */
     
-    /* Đẩy nội dung lên sát mép trên */
+    /* 2. CĂN CHỈNH LỀ CHO ĐIỆN THOẠI (SÁT VIỀN) */
     .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 2rem !important;
+        padding-top: 0.5rem !important; /* Sát mép trên */
+        padding-bottom: 1rem !important; /* Sát mép dưới */
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
     }
     
-    /* TIÊU ĐỀ: Căn giữa, to rõ */
+    /* 3. HEADER CỦA APP */
     .main-header {
-        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-        padding: 20px; 
-        border-radius: 15px; 
+        background: linear-gradient(to right, #007bff, #0056b3);
+        padding: 15px; 
+        border-radius: 10px; 
         color: white; 
-        text-align: center !important; /* Luôn căn giữa */
-        font-weight: bold;
-        font-size: 22px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
-        margin-bottom: 25px;
+        text-align: center !important;
+        font-weight: 700;
+        font-size: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+        margin-bottom: 15px;
         text-transform: uppercase;
     }
     
-    /* Khung kết quả */
+    /* 4. KHUNG KẾT QUẢ */
     .report-card {
-        background: white; padding: 20px; border: 1px solid #e0e0e0;
-        border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); color: #333;
-        margin-bottom: 20px;
+        background: white; padding: 15px; 
+        border: 1px solid #ddd;
+        border-radius: 10px; 
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
+        margin-bottom: 15px;
     }
     .school-name { 
-        color: #cc0000; font-weight: 900; font-size: 16px; 
+        color: #cc0000; font-weight: 900; font-size: 15px; 
         text-transform: uppercase; text-align: center; margin-bottom: 5px;
     }
     
-    /* Grid Tổng kết */
+    /* 5. GRID TỔNG KẾT (2 CỘT) */
     .summary-grid { 
-        display: grid; grid-template-columns: repeat(2, 1fr); /* 2 cột trên điện thoại */
-        gap: 10px; margin-top: 15px; 
+        display: grid; grid-template-columns: repeat(2, 1fr); 
+        gap: 8px; margin-top: 15px; 
     }
     .summary-item { 
-        background: #f8f9fa; padding: 12px; border-radius: 8px; 
-        border-left: 4px solid #007bff; text-align: center; 
+        background: #f1f3f5; padding: 10px; border-radius: 8px; 
+        border-left: 3px solid #007bff; text-align: center; 
     }
-    .summary-val { font-size: 16px; font-weight: bold; color: #333; margin-top: 5px; display:block;}
+    .summary-val { font-size: 15px; font-weight: bold; color: #333; margin-top: 2px; display:block;}
     
-    /* NÚT BẤM: Full width, bo tròn, to dễ bấm */
+    /* 6. NÚT BẤM (TO, DỄ BẤM TRÊN MOBILE) */
     .stButton>button {
         width: 100% !important;
-        border-radius: 12px;
-        height: 50px;
+        border-radius: 10px;
+        height: 48px; /* Chiều cao chuẩn ngón tay */
         font-weight: bold;
         font-size: 16px;
         border: none;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
     }
     
-    /* Nút Admin ở cuối trang */
+    /* 7. NÚT ADMIN Ở CUỐI (TÁCH BIỆT) */
     .admin-btn-zone {
-        margin-top: 50px;
+        margin-top: 40px;
         padding-top: 20px;
         border-top: 1px dashed #ccc;
         text-align: center;
+        margin-bottom: 0px; /* Bỏ khoảng trắng dưới cùng */
     }
+    
+    /* Tinh chỉnh bảng điểm cho mobile */
+    .stTable { font-size: 13px; }
+    div[data-testid="stTable"] td { padding: 8px 4px !important; } /* Thu nhỏ padding ô */
 </style>
 """, unsafe_allow_html=True)
 
@@ -378,3 +389,4 @@ if __name__ == "__main__":
         else: view_student(db)
     except Exception as e:
         st.error("Lỗi hệ thống."); print(e)
+
