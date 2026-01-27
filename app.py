@@ -36,8 +36,9 @@ st.markdown("""
     .summary-item { background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #FF8C00; text-align: center; }
     .summary-val { font-size: 18px; font-weight: bold; color: #333; margin-top: 5px; display:block;}
     
-    /* Cảnh báo xóa */
-    .danger-zone { border: 2px dashed #dc3545; padding: 20px; border-radius: 10px; background-color: #fff8f8; }
+    /* Khu vực xóa */
+    .del-section { border: 1px solid #ffcccc; background-color: #fff5f5; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
+    .del-title { color: #cc0000; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; font-size: 14px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -56,18 +57,30 @@ def load_excel_robust(file):
             return {f"Sheet {i+1}": df for i, df in enumerate(dfs)}
         except: return None
 
-# --- HÀM XÓA DỮ LIỆU ---
-def delete_collection_by_class(db, collection_name, cls):
-    """Xóa dữ liệu theo lớp bằng Batch"""
+# --- HÀM XÓA DỮ LIỆU (NÂNG CẤP: LỌC THEO KỲ) ---
+def delete_data_granular(db, collection_name, cls, sem=None):
+    """
+    Xóa dữ liệu chi tiết.
+    - collection_name: 'scores' hoặc 'summary' hoặc 'students'
+    - cls: Lớp
+    - sem: 'HK1', 'HK2', 'CN' (Nếu None thì xóa hết của lớp đó - dùng cho students)
+    """
     deleted_count = 0
     try:
         ref = db.collection(collection_name)
-        # Nếu chọn Tất cả thì quét hết, nếu chọn Lớp thì lọc
+        
+        # Tạo query cơ bản theo Lớp
         if cls == "Tất cả":
-            docs = ref.stream()
+            query = ref
         else:
-            docs = ref.where('cls', '==', cls).stream()
+            query = ref.where('cls', '==', cls)
             
+        # Nếu có chỉ định kỳ thì lọc thêm kỳ
+        if sem:
+            query = query.where('sem', '==', sem)
+            
+        docs = query.stream()
+        
         batch = db.batch()
         batch_count = 0
         
@@ -88,7 +101,7 @@ def delete_collection_by_class(db, collection_name, cls):
         st.error(f"Lỗi khi xóa {collection_name}: {e}")
     return deleted_count
 
-# --- HÀM UPLOAD (GIỮ NGUYÊN NHƯ CŨ) ---
+# --- HÀM UPLOAD (GIỮ NGUYÊN) ---
 def upload_to_firebase(db, file, sem_default, cls, type_file):
     count = 0
     try:
@@ -146,7 +159,6 @@ def upload_to_firebase(db, file, sem_default, cls, type_file):
         elif type_file == 'summary':
             try: df = pd.read_excel(file)
             except: df = pd.read_csv(file)
-            
             if 'Mã học sinh' not in df.columns:
                 for i, row in df.iterrows():
                     if row.astype(str).str.contains("Mã học sinh").any():
@@ -227,39 +239,71 @@ def view_admin(db):
                     st.success("Đã lưu!")
             else: st.warning("Chưa có dữ liệu.")
 
-        # TAB 3: XÓA DỮ LIỆU (TÍNH NĂNG MỚI)
+        # TAB 3: XÓA DỮ LIỆU (NÂNG CẤP CHI TIẾT)
         with t3:
-            st.markdown('<div class="danger-zone"><h4>⚠️ KHU VỰC NGUY HIỂM</h4><p>Hành động xóa không thể khôi phục. Hãy cân nhắc kỹ!</p></div>', unsafe_allow_html=True)
+            st.warning("⚠️ Chú ý: Dữ liệu đã xóa sẽ không thể khôi phục!")
+            
+            # Chọn lớp
+            cls_del = st.selectbox("1. Chọn Lớp cần xóa:", ["Tất cả"] + [f"Lớp {i}" for i in range(6, 13)], key="del_cls")
+            
+            c_d1, c_d2, c_d3 = st.columns(3)
+            
+            # Cột 1: Xóa Điểm Chi Tiết
+            with c_d1:
+                st.markdown('<div class="del-section"><div class="del-title">1. BẢNG ĐIỂM CHI TIẾT</div>', unsafe_allow_html=True)
+                d_sc_hk1 = st.checkbox(f"Xóa Điểm HK1 ({cls_del})")
+                d_sc_hk2 = st.checkbox(f"Xóa Điểm HK2 ({cls_del})")
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # Cột 2: Xóa Tổng Kết
+            with c_d2:
+                st.markdown('<div class="del-section"><div class="del-title">2. TỔNG KẾT & HẠNH KIỂM</div>', unsafe_allow_html=True)
+                d_sum_hk1 = st.checkbox(f"Xóa TK HK1 ({cls_del})")
+                d_sum_hk2 = st.checkbox(f"Xóa TK HK2 ({cls_del})")
+                d_sum_cn = st.checkbox(f"Xóa TK Cả Năm ({cls_del})")
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # Cột 3: Xóa Học Sinh
+            with c_d3:
+                st.markdown('<div class="del-section"><div class="del-title">3. TÀI KHOẢN HỌC SINH</div>', unsafe_allow_html=True)
+                d_student = st.checkbox(f"Xóa Danh sách HS ({cls_del})")
+                st.caption("Lưu ý: Xóa HS sẽ xóa luôn quyền đăng nhập.")
+                st.markdown('</div>', unsafe_allow_html=True)
+            
             st.write("")
-            
-            cls_del = st.selectbox("Chọn Lớp muốn xóa dữ liệu:", ["Tất cả"] + [f"Lớp {i}" for i in range(6, 13)], key="del_cls")
-            
-            c_del1, c_del2, c_del3 = st.columns(3)
-            del_score = c_del1.checkbox("Xóa Bảng Điểm (HK1, HK2, CN)")
-            del_summary = c_del2.checkbox("Xóa Tổng Kết (Hạnh kiểm, Danh hiệu)")
-            del_student = c_del3.checkbox("Xóa Tài khoản Học sinh")
-            
-            st.write("")
-            if st.button("🚨 XÁC NHẬN XÓA DỮ LIỆU", type="primary"):
-                if not (del_score or del_summary or del_student):
-                    st.warning("Bạn chưa chọn mục nào để xóa!")
+            if st.button("🚨 THỰC HIỆN XÓA", type="primary"):
+                if not any([d_sc_hk1, d_sc_hk2, d_sum_hk1, d_sum_hk2, d_sum_cn, d_student]):
+                    st.error("Bạn chưa chọn mục nào để xóa!")
                 else:
                     with st.spinner("Đang xóa dữ liệu..."):
-                        msg = []
-                        if del_score:
-                            c = delete_collection_by_class(db, 'scores', cls_del)
-                            msg.append(f"Đã xóa {c} điểm.")
-                        if del_summary:
-                            c = delete_collection_by_class(db, 'summary', cls_del)
-                            msg.append(f"Đã xóa {c} bản ghi tổng kết.")
-                        if del_student:
-                            c = delete_collection_by_class(db, 'students', cls_del)
-                            msg.append(f"Đã xóa {c} tài khoản học sinh.")
+                        log = []
+                        # Xóa điểm
+                        if d_sc_hk1: 
+                            n = delete_data_granular(db, 'scores', cls_del, 'HK1')
+                            log.append(f"Xóa {n} điểm HK1")
+                        if d_sc_hk2: 
+                            n = delete_data_granular(db, 'scores', cls_del, 'HK2')
+                            log.append(f"Xóa {n} điểm HK2")
                         
-                        st.success(" | ".join(msg))
-                        if del_student: st.cache_data.clear() # Xóa cache nếu xóa user
+                        # Xóa tổng kết
+                        if d_sum_hk1: 
+                            n = delete_data_granular(db, 'summary', cls_del, 'HK1')
+                            log.append(f"Xóa {n} TK HK1")
+                        if d_sum_hk2: 
+                            n = delete_data_granular(db, 'summary', cls_del, 'HK2')
+                            log.append(f"Xóa {n} TK HK2")
+                        if d_sum_cn: 
+                            n = delete_data_granular(db, 'summary', cls_del, 'CN')
+                            log.append(f"Xóa {n} TK Cả Năm")
+                            
+                        # Xóa học sinh
+                        if d_student:
+                            n = delete_data_granular(db, 'students', cls_del, None)
+                            log.append(f"Xóa {n} Tài khoản HS")
+                            
+                        st.success(" | ".join(log))
 
-# --- 5. GIAO DIỆN HỌC SINH (FIX SỐ THỨ TỰ) ---
+# --- 5. GIAO DIỆN HỌC SINH ---
 def view_student(db):
     c1, c2 = st.columns([8, 1])
     c1.markdown("### 🔥 TRA CỨU ĐIỂM")
@@ -300,7 +344,7 @@ def view_student(db):
                 return 3
             df['priority'] = df['sub'].apply(sort_priority)
             df = df.sort_values(by=['priority', 'sub'])
-            df['STT'] = range(1, len(df) + 1) # Fix STT
+            df['STT'] = range(1, len(df) + 1)
             
             renames = {'sub': 'Môn', 'tx': 'ĐĐG TX', 'gk': 'GK', 'ck': 'CK', 'tb': 'TBM', 'cn': 'CN'}
             cols = ['STT', 'Môn', 'ĐĐG TX', 'GK', 'CK', 'TBM']
