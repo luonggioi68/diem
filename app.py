@@ -35,6 +35,9 @@ st.markdown("""
     .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-top: 20px; }
     .summary-item { background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #FF8C00; text-align: center; }
     .summary-val { font-size: 18px; font-weight: bold; color: #333; margin-top: 5px; display:block;}
+    
+    /* Cảnh báo xóa */
+    .danger-zone { border: 2px dashed #dc3545; padding: 20px; border-radius: 10px; background-color: #fff8f8; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -53,6 +56,39 @@ def load_excel_robust(file):
             return {f"Sheet {i+1}": df for i, df in enumerate(dfs)}
         except: return None
 
+# --- HÀM XÓA DỮ LIỆU ---
+def delete_collection_by_class(db, collection_name, cls):
+    """Xóa dữ liệu theo lớp bằng Batch"""
+    deleted_count = 0
+    try:
+        ref = db.collection(collection_name)
+        # Nếu chọn Tất cả thì quét hết, nếu chọn Lớp thì lọc
+        if cls == "Tất cả":
+            docs = ref.stream()
+        else:
+            docs = ref.where('cls', '==', cls).stream()
+            
+        batch = db.batch()
+        batch_count = 0
+        
+        for doc in docs:
+            batch.delete(doc.reference)
+            batch_count += 1
+            deleted_count += 1
+            
+            if batch_count >= 400:
+                batch.commit()
+                batch = db.batch()
+                batch_count = 0
+        
+        if batch_count > 0:
+            batch.commit()
+            
+    except Exception as e:
+        st.error(f"Lỗi khi xóa {collection_name}: {e}")
+    return deleted_count
+
+# --- HÀM UPLOAD (GIỮ NGUYÊN NHƯ CŨ) ---
 def upload_to_firebase(db, file, sem_default, cls, type_file):
     count = 0
     try:
@@ -65,8 +101,6 @@ def upload_to_firebase(db, file, sem_default, cls, type_file):
             
             for sheet_name, df in xls_data.items():
                 if any(x in str(sheet_name).lower() for x in ["hướng dẫn", "bìa"]): continue
-                
-                # Tìm header
                 h_idx = -1
                 for i, row in df.iterrows():
                     if row.astype(str).str.contains("Mã học sinh", case=False).any():
@@ -82,7 +116,6 @@ def upload_to_firebase(db, file, sem_default, cls, type_file):
                         for _, row in df.iterrows():
                             ma_hs = safe_str(row.iloc[idx_ma])
                             if len(ma_hs) > 3:
-                                # Lưu HS
                                 try: 
                                     ten_hs = safe_str(row.iloc[idx_ma-2])
                                     ref_st = db.collection('students').document(ma_hs)
@@ -92,13 +125,11 @@ def upload_to_firebase(db, file, sem_default, cls, type_file):
                                     batch.set(ref_st, st_data, merge=True)
                                 except: pass
 
-                                # Lưu điểm
                                 def g(off): 
                                     try: return safe_str(row.iloc[idx_ma+off])
                                     except: return ""
                                 
                                 tx = "  ".join([g(k) for k in range(1,10) if g(k)])
-                                # ID: MaHS_Ky_Mon
                                 safe_sub = str(sheet_name).strip().replace("/", "-")
                                 doc_id = f"{ma_hs}_{sem_default}_{safe_sub}"
                                 
@@ -113,7 +144,6 @@ def upload_to_firebase(db, file, sem_default, cls, type_file):
             batch.commit()
 
         elif type_file == 'summary':
-            # Đọc file tổng kết
             try: df = pd.read_excel(file)
             except: df = pd.read_csv(file)
             
@@ -122,14 +152,11 @@ def upload_to_firebase(db, file, sem_default, cls, type_file):
                     if row.astype(str).str.contains("Mã học sinh").any():
                         df.columns = df.iloc[i]; df = df.iloc[i+1:]; break
             df.columns = df.columns.str.strip()
-            
-            # CƠ CHẾ THÔNG MINH: Tự nhận diện kỳ từ cột 'Loại TK' (nếu có)
             has_loai_tk = 'Loại TK' in df.columns
             
             for _, row in df.iterrows():
                 ma = safe_str(row.get('Mã học sinh'))
                 if len(ma) > 3:
-                    # Xác định kỳ: Nếu file có cột Loại TK thì dùng nó, không thì dùng sem_default
                     current_sem = sem_default
                     if has_loai_tk:
                         val_loai = safe_str(row.get('Loại TK')).upper()
@@ -141,16 +168,13 @@ def upload_to_firebase(db, file, sem_default, cls, type_file):
                     ref_sum = db.collection('summary').document(doc_id)
                     batch.set(ref_sum, {
                         'id': ma, 'sem': current_sem, 'cls': cls,
-                        'ht': safe_str(row.get('Học tập')), 
-                        'rl': safe_str(row.get('Rèn luyện')),
-                        'v': safe_str(row.get('Vắng')), 
-                        'dh': safe_str(row.get('Danh hiệu')),
+                        'ht': safe_str(row.get('Học tập')), 'rl': safe_str(row.get('Rèn luyện')),
+                        'v': safe_str(row.get('Vắng')), 'dh': safe_str(row.get('Danh hiệu')),
                         'kq': safe_str(row.get('Kết quả'))
                     })
                     count += 1; batch_count += 1
                     if batch_count >= 300: batch.commit(); batch = db.batch(); batch_count = 0
             batch.commit()
-            
     except Exception as e:
         st.error(f"Lỗi: {e}"); print(e)
     return count
@@ -161,42 +185,38 @@ def view_admin(db):
     if st.button("Đăng xuất"): st.session_state.page = 'login'; st.rerun()
     
     if st.text_input("Mật khẩu:", type="password") == "admin123":
-        t1, t2 = st.tabs(["UPLOAD DỮ LIỆU", "KÍCH HOẠT"])
+        t1, t2, t3 = st.tabs(["📤 UPLOAD DỮ LIỆU", "✅ KÍCH HOẠT", "🗑️ QUẢN LÝ XÓA"])
+        
+        # TAB 1: UPLOAD
         with t1:
             cls = st.selectbox("Chọn Lớp:", [f"Lớp {i}" for i in range(6, 13)])
             c1, c2 = st.columns(2)
             f1 = c1.file_uploader(f"Điểm HK1 {cls}", key="f1")
             f2 = c1.file_uploader(f"Điểm HK2 {cls}", key="f2")
-            
-            st.info("Mẹo: File tổng kết chỉ cần upload 1 lần nếu chứa đủ cột 'Loại TK' (HK1, HK2, CN)")
-            tk = st.file_uploader(f"File Tổng Kết {cls} (Chứa HK1, HK2, CN)", key="tk_all")
+            tk = st.file_uploader(f"File Tổng Kết {cls} (HK1, HK2, CN)", key="tk_all")
             
             if st.button("LƯU LÊN CLOUD", type="primary"):
                 with st.spinner("Đang đồng bộ..."):
                     cnt = 0
                     if f1: cnt += upload_to_firebase(db, f1, "HK1", cls, 'score')
                     if f2: cnt += upload_to_firebase(db, f2, "HK2", cls, 'score')
-                    # Upload tổng kết (mặc định HK1, nhưng code sẽ tự chỉnh nếu file có cột Loại TK)
                     if tk: cnt += upload_to_firebase(db, tk, "HK1", cls, 'summary') 
                     st.success(f"Xong! {cnt} bản ghi.")
 
+        # TAB 2: KÍCH HOẠT
         with t2:
             st.info("Tick 'Active' để mở quyền xem điểm.")
             flt = st.selectbox("Lọc Lớp:", ["Tất cả"] + [f"Lớp {i}" for i in range(6, 13)])
-            
             ref = db.collection('students')
             docs = ref.where('cls', '==', flt).stream() if flt != "Tất cả" else ref.stream()
-            
             data = [{"id": d.id, **d.to_dict()} for d in docs]
             if data:
                 df = pd.DataFrame(data)
                 if 'active' not in df.columns: df['active'] = 0
                 df['active'] = df['active'].apply(lambda x: True if x==1 else False)
-                
                 edited = st.data_editor(df[['active', 'id', 'name', 'cls']], 
                                       column_config={"active": st.column_config.CheckboxColumn("Active", default=False)},
                                       disabled=['id', 'name', 'cls'], hide_index=True, height=500)
-                
                 if st.button("LƯU TRẠNG THÁI"):
                     batch = db.batch(); b_cnt = 0
                     for _, r in edited.iterrows():
@@ -207,8 +227,39 @@ def view_admin(db):
                     st.success("Đã lưu!")
             else: st.warning("Chưa có dữ liệu.")
 
-# --- 5. GIAO DIỆN HỌC SINH (ĐÃ SẮP XẾP MÔN) ---
-# --- 5. GIAO DIỆN HỌC SINH (ĐÃ SỬA SỐ THỨ TỰ) ---
+        # TAB 3: XÓA DỮ LIỆU (TÍNH NĂNG MỚI)
+        with t3:
+            st.markdown('<div class="danger-zone"><h4>⚠️ KHU VỰC NGUY HIỂM</h4><p>Hành động xóa không thể khôi phục. Hãy cân nhắc kỹ!</p></div>', unsafe_allow_html=True)
+            st.write("")
+            
+            cls_del = st.selectbox("Chọn Lớp muốn xóa dữ liệu:", ["Tất cả"] + [f"Lớp {i}" for i in range(6, 13)], key="del_cls")
+            
+            c_del1, c_del2, c_del3 = st.columns(3)
+            del_score = c_del1.checkbox("Xóa Bảng Điểm (HK1, HK2, CN)")
+            del_summary = c_del2.checkbox("Xóa Tổng Kết (Hạnh kiểm, Danh hiệu)")
+            del_student = c_del3.checkbox("Xóa Tài khoản Học sinh")
+            
+            st.write("")
+            if st.button("🚨 XÁC NHẬN XÓA DỮ LIỆU", type="primary"):
+                if not (del_score or del_summary or del_student):
+                    st.warning("Bạn chưa chọn mục nào để xóa!")
+                else:
+                    with st.spinner("Đang xóa dữ liệu..."):
+                        msg = []
+                        if del_score:
+                            c = delete_collection_by_class(db, 'scores', cls_del)
+                            msg.append(f"Đã xóa {c} điểm.")
+                        if del_summary:
+                            c = delete_collection_by_class(db, 'summary', cls_del)
+                            msg.append(f"Đã xóa {c} bản ghi tổng kết.")
+                        if del_student:
+                            c = delete_collection_by_class(db, 'students', cls_del)
+                            msg.append(f"Đã xóa {c} tài khoản học sinh.")
+                        
+                        st.success(" | ".join(msg))
+                        if del_student: st.cache_data.clear() # Xóa cache nếu xóa user
+
+# --- 5. GIAO DIỆN HỌC SINH (FIX SỐ THỨ TỰ) ---
 def view_student(db):
     c1, c2 = st.columns([8, 1])
     c1.markdown("### 🔥 TRA CỨU ĐIỂM")
@@ -236,45 +287,29 @@ def view_student(db):
         ky = st.radio("Kỳ:", ["HK1", "HK2 & Cả năm"], horizontal=True)
         sem = "HK1" if ky == "HK1" else "HK2"
         
-        # Lấy điểm
         docs = db.collection('scores').where('id', '==', u['id']).where('sem', '==', sem).stream()
         data = [d.to_dict() for d in docs]
         
         if data:
             df = pd.DataFrame(data)
-            
-            # 1. Sắp xếp ưu tiên (Toán, Văn lên đầu)
-            def sort_priority(subject_name):
-                s = str(subject_name).lower()
+            def sort_priority(s):
+                s = str(s).lower()
                 if 'toán' in s: return 0
                 if 'văn' in s or 'ngữ văn' in s: return 1
                 if 'anh' in s or 'ngoại ngữ' in s: return 2
                 return 3
-            
             df['priority'] = df['sub'].apply(sort_priority)
             df = df.sort_values(by=['priority', 'sub'])
+            df['STT'] = range(1, len(df) + 1) # Fix STT
             
-            # 2. TẠO CỘT SỐ THỨ TỰ (STT) MỚI
-            # Đánh số từ 1 đến hết danh sách
-            df['STT'] = range(1, len(df) + 1)
-            
-            # 3. Đổi tên và hiển thị
             renames = {'sub': 'Môn', 'tx': 'ĐĐG TX', 'gk': 'GK', 'ck': 'CK', 'tb': 'TBM', 'cn': 'CN'}
-            
-            # Chọn các cột cần hiển thị
             cols = ['STT', 'Môn', 'ĐĐG TX', 'GK', 'CK', 'TBM']
             if sem == 'HK2': cols.append('CN')
-            
-            # Hiển thị bảng
-            # set_index('STT') để cột STT biến thành cột đầu tiên thay vì cột index mặc định
             st.table(df.rename(columns=renames)[cols].set_index('STT'))
-            
         else: st.info("Chưa có điểm môn học.")
         
-        # Lấy TK
         tk = db.collection('summary').document(f"{u['id']}_{sem}_summary").get()
         tk_data = tk.to_dict() if tk.exists else {}
-        
         tk_cn = db.collection('summary').document(f"{u['id']}_CN_summary").get()
         tk_cn_data = tk_cn.to_dict() if tk_cn.exists else {}
         
@@ -287,8 +322,7 @@ def view_student(db):
             html += card("Vắng", tk_data.get('v')) + card("Danh hiệu", tk_data.get('dh'))
             html += '</div>'
             st.markdown(html, unsafe_allow_html=True)
-        else:
-            st.caption("Chưa có dữ liệu tổng kết.")
+        else: st.caption("Chưa có dữ liệu.")
 
         if sem == 'HK2':
             st.markdown("---")
@@ -301,8 +335,7 @@ def view_student(db):
                 html += f'<div class="summary-item" style="border-color:red"><small>KẾT QUẢ</small><div class="summary-val" style="color:red">{tk_cn_data.get("kq")}</div></div>'
                 html += '</div>'
                 st.markdown(html, unsafe_allow_html=True)
-            else:
-                st.caption("Chưa có kết quả cả năm.")
+            else: st.caption("Chưa có kết quả cả năm.")
 
 # --- MAIN ---
 if __name__ == "__main__":
@@ -313,4 +346,3 @@ if __name__ == "__main__":
         else: view_student(db)
     except Exception as e:
         st.error("Lỗi hệ thống."); print(e)
-
