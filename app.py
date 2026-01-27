@@ -18,27 +18,86 @@ def init_firebase():
             st.stop()
     return firestore.client()
 
-# --- 2. CSS GIAO DIỆN ---
+# --- 2. CSS GIAO DIỆN (ĐÃ DỌN DẸP SẠCH SẼ) ---
 st.markdown("""
 <style>
+    /* 1. Ẩn Menu (3 chấm) và Header mặc định */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    [data-testid="stToolbar"] {visibility: hidden;}
+    
+    /* 2. Ẩn Footer (Made with Streamlit) */
+    footer {visibility: hidden;}
+    
+    /* 3. Ẩn Sidebar (Menu trái) */
     [data-testid="stSidebar"] {display: none;}
+    
+    /* 4. Đẩy nội dung lên sát mép trên (Bỏ khoảng trắng thừa) */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+    
+    /* 5. Trang trí lại Header của mình cho đẹp */
     .main-header {
         background: linear-gradient(135deg, #FF8C00 0%, #FF0080 100%);
-        padding: 20px; border-radius: 12px; color: white; text-align: center;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 25px;
+        padding: 15px; 
+        border-radius: 12px; 
+        color: white; 
+        text-align: center;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+        margin-bottom: 20px;
     }
-    .report-card {
-        background: white; padding: 25px; border: 2px solid #eee;
-        border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); color: #333;
-    }
-    .school-name { color: #cc0000; font-weight: 900; font-size: 20px; text-transform: uppercase; text-align: center;}
-    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-top: 20px; }
-    .summary-item { background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #FF8C00; text-align: center; }
-    .summary-val { font-size: 18px; font-weight: bold; color: #333; margin-top: 5px; display:block;}
     
-    /* Khu vực xóa */
-    .del-section { border: 1px solid #ffcccc; background-color: #fff5f5; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
-    .del-title { color: #cc0000; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; font-size: 14px; }
+    /* 6. Khung phiếu điểm */
+    .report-card {
+        background: white; 
+        padding: 20px; 
+        border: 2px solid #eee;
+        border-radius: 12px; 
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05); 
+        color: #333;
+    }
+    .school-name { 
+        color: #cc0000; 
+        font-weight: 900; 
+        font-size: 18px; 
+        text-transform: uppercase; 
+        text-align: center;
+    }
+    
+    /* 7. Grid Tổng kết */
+    .summary-grid { 
+        display: grid; 
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
+        gap: 10px; 
+        margin-top: 20px; 
+    }
+    .summary-item { 
+        background: #f8f9fa; 
+        padding: 10px; 
+        border-radius: 8px; 
+        border-left: 4px solid #FF8C00; 
+        text-align: center; 
+    }
+    .summary-val { 
+        font-size: 16px; 
+        font-weight: bold; 
+        color: #333; 
+        margin-top: 5px; 
+        display:block;
+    }
+    
+    /* 8. Tinh chỉnh bảng */
+    .stTable { font-size: 14px; }
+    
+    /* 9. Nút bấm đẹp hơn */
+    .stButton>button {
+        width: 100%;
+        border-radius: 8px;
+        height: 45px;
+        font-weight: bold;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -390,3 +449,4 @@ if __name__ == "__main__":
         else: view_student(db)
     except Exception as e:
         st.error("Lỗi hệ thống."); print(e)
+
