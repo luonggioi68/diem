@@ -287,7 +287,7 @@ def view_admin(db):
 # --- 5. GIAO DIỆN HỌC SINH (MOBILE) ---
 def view_student(db):
     # Tiêu đề căn giữa, to rõ
-    st.markdown('<div class="main-header">🔥 TRA CỨU ĐIỂM THI TUY ĐỨC SCHOOL</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">🔥 TRA CỨU ĐIỂM TUY ĐỨC SCHOOL</div>', unsafe_allow_html=True)
 
     if 'user' not in st.session_state:
         # Form nhập liệu
@@ -389,5 +389,6 @@ if __name__ == "__main__":
         else: view_student(db)
     except Exception as e:
         st.error("Lỗi hệ thống."); print(e)
+
 
 
