@@ -304,7 +304,7 @@ def view_student(db):
         
         st.markdown(f"""
         <div class="report-card">
-            <div class="school-name">TRƯỜNG THCS & THPT TUY ĐỨC</div>
+            <div class="school-name">TRƯỜNG PT DTNT THCS&THPT TUY ĐỨC</div>
             <div style="text-align:center; margin-top:10px;">
                 <div style="font-size:18px; font-weight:bold; color:#0056b3;">{u.get('name')}</div>
                 <div>Mã: {u.get('id')} | Lớp: {u.get('cls')}</div>
@@ -331,7 +331,7 @@ def view_student(db):
             df = df.sort_values(by=['priority', 'sub'])
             df['STT'] = range(1, len(df) + 1)
             
-            renames = {'sub': 'Môn', 'tx': 'TX', 'gk': 'GK', 'ck': 'CK', 'tb': 'TB', 'cn': 'CN'}
+            renames = {'sub': 'Môn', 'tx': 'TX', 'gk': 'GK', 'ck': 'CK', 'tb': 'TBHK2', 'cn': 'TBCN'}
             cols = ['STT', 'Môn', 'TX', 'GK', 'CK', 'TB']
             if sem == 'HK2': cols.append('CN')
             st.table(df.rename(columns=renames)[cols].set_index('STT'))
@@ -389,6 +389,7 @@ if __name__ == "__main__":
         else: view_student(db)
     except Exception as e:
         st.error("Lỗi hệ thống."); print(e)
+
 
 
 
