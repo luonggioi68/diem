@@ -208,6 +208,7 @@ def view_admin(db):
             else: st.warning("Chưa có dữ liệu.")
 
 # --- 5. GIAO DIỆN HỌC SINH (ĐÃ SẮP XẾP MÔN) ---
+# --- 5. GIAO DIỆN HỌC SINH (ĐÃ SỬA SỐ THỨ TỰ) ---
 def view_student(db):
     c1, c2 = st.columns([8, 1])
     c1.markdown("### 🔥 TRA CỨU ĐIỂM")
@@ -242,23 +243,32 @@ def view_student(db):
         if data:
             df = pd.DataFrame(data)
             
-            # --- XỬ LÝ SẮP XẾP (TOÁN, VĂN LÊN ĐẦU) ---
+            # 1. Sắp xếp ưu tiên (Toán, Văn lên đầu)
             def sort_priority(subject_name):
-                s = subject_name.lower()
+                s = str(subject_name).lower()
                 if 'toán' in s: return 0
                 if 'văn' in s or 'ngữ văn' in s: return 1
                 if 'anh' in s or 'ngoại ngữ' in s: return 2
-                return 3 # Các môn còn lại
+                return 3
             
             df['priority'] = df['sub'].apply(sort_priority)
-            df = df.sort_values(by=['priority', 'sub']) # Sắp xếp
+            df = df.sort_values(by=['priority', 'sub'])
             
-            # Đổi tên và hiển thị
+            # 2. TẠO CỘT SỐ THỨ TỰ (STT) MỚI
+            # Đánh số từ 1 đến hết danh sách
+            df['STT'] = range(1, len(df) + 1)
+            
+            # 3. Đổi tên và hiển thị
             renames = {'sub': 'Môn', 'tx': 'ĐĐG TX', 'gk': 'GK', 'ck': 'CK', 'tb': 'TBM', 'cn': 'CN'}
-            cols = ['Môn', 'ĐĐG TX', 'GK', 'CK', 'TBM']
+            
+            # Chọn các cột cần hiển thị
+            cols = ['STT', 'Môn', 'ĐĐG TX', 'GK', 'CK', 'TBM']
             if sem == 'HK2': cols.append('CN')
             
-            st.table(df.rename(columns=renames)[cols])
+            # Hiển thị bảng
+            # set_index('STT') để cột STT biến thành cột đầu tiên thay vì cột index mặc định
+            st.table(df.rename(columns=renames)[cols].set_index('STT'))
+            
         else: st.info("Chưa có điểm môn học.")
         
         # Lấy TK
@@ -270,7 +280,6 @@ def view_student(db):
         
         def card(l, v): return f'<div class="summary-item"><small>{l}</small><div class="summary-val">{v if v else "-"}</div></div>'
         
-        # Hiển thị TK HK
         st.markdown(f"##### 🏆 TỔNG KẾT {ky.upper()}")
         if tk_data:
             html = '<div class="summary-grid">'
@@ -279,9 +288,8 @@ def view_student(db):
             html += '</div>'
             st.markdown(html, unsafe_allow_html=True)
         else:
-            st.caption("Chưa có dữ liệu tổng kết học kỳ này.")
+            st.caption("Chưa có dữ liệu tổng kết.")
 
-        # Hiển thị TK Cả Năm (Chỉ hiện ở HK2)
         if sem == 'HK2':
             st.markdown("---")
             st.markdown(f"##### 🚩 KẾT QUẢ CẢ NĂM")
@@ -294,7 +302,7 @@ def view_student(db):
                 html += '</div>'
                 st.markdown(html, unsafe_allow_html=True)
             else:
-                st.caption("Chưa có dữ liệu tổng kết cả năm.")
+                st.caption("Chưa có kết quả cả năm.")
 
 # --- MAIN ---
 if __name__ == "__main__":
@@ -305,3 +313,4 @@ if __name__ == "__main__":
         else: view_student(db)
     except Exception as e:
         st.error("Lỗi hệ thống."); print(e)
+
