@@ -311,14 +311,14 @@ def view_admin(db):
 
 # --- 6. GIAO DIỆN HỌC SINH ---
 def view_student(db):
-    st.markdown('<div class="main-header">🔥 TRA CỨU ĐIỂM THI</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">🔥 TRA CỨU ĐIỂM THI TUY ĐỨC SCHOOL</div>', unsafe_allow_html=True)
 
     if 'user' not in st.session_state:
         mid = st.text_input("Nhập Mã Học Sinh:", placeholder="Ví dụ: 2411...").strip()
         if st.button("TRA CỨU NGAY", type="primary", use_container_width=True):
             doc = db.collection('students').document(mid).get()
             if not doc.exists: st.error("Sai mã học sinh!")
-            elif doc.to_dict().get('active') != 1: st.warning("Tài khoản chưa được kích hoạt.")
+            elif doc.to_dict().get('active') != 1: st.warning("Tài khoản chưa được kích hoạt. Liên hệ admin Zalo: 0383477162 để kích hoạt, hệ thống có thu phí 15k/năm")
             else: st.session_state.user = doc.to_dict(); st.rerun()
     else:
         u = st.session_state.user
@@ -415,3 +415,4 @@ if __name__ == "__main__":
         else: view_student(db)
     except Exception as e:
         st.error("Lỗi hệ thống."); print(e)
+
