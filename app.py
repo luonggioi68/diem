@@ -10,6 +10,7 @@ def init_firebase():
     if not firebase_admin._apps:
         try:
             key_dict = dict(st.secrets["firebase"])
+            # Fix lỗi xuống dòng trong private key
             key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
             cred = credentials.Certificate(key_dict)
             firebase_admin.initialize_app(cred)
@@ -18,86 +19,79 @@ def init_firebase():
             st.stop()
     return firestore.client()
 
-# --- 2. CSS GIAO DIỆN (CLEAN MOBILE VERSION) ---
+# --- 2. CSS GIAO DIỆN (MOBILE FIRST - SẠCH SẼ) ---
 st.markdown("""
 <style>
-    /* 1. ẨN CÁC THÀNH PHẦN MẶC ĐỊNH CỦA STREAMLIT */
-    #MainMenu {visibility: hidden; display: none;} /* Ẩn 3 chấm */
-    header {visibility: hidden; display: none;} /* Ẩn thanh trên cùng */
-    footer {visibility: hidden; display: none;} /* Ẩn dòng Made with Streamlit */
-    .stAppDeployButton {display: none;} /* Ẩn nút Deploy/Manage lơ lửng */
-    [data-testid="stToolbar"] {visibility: hidden; display: none;} /* Ẩn thanh công cụ */
-    [data-testid="stSidebar"] {display: none;} /* Ẩn sidebar */
+    /* Ẩn các thành phần mặc định của Streamlit */
+    #MainMenu {visibility: hidden; display: none;}
+    header {visibility: hidden; display: none;}
+    footer {visibility: hidden; display: none;}
+    .stAppDeployButton {display: none;}
+    [data-testid="stToolbar"] {visibility: hidden; display: none;}
+    [data-testid="stSidebar"] {display: none;}
     
-    /* 2. CĂN CHỈNH LỀ CHO ĐIỆN THOẠI (SÁT VIỀN) */
+    /* Căn lề sát viền cho điện thoại */
     .block-container {
-        padding-top: 0.5rem !important; /* Sát mép trên */
-        padding-bottom: 1rem !important; /* Sát mép dưới */
+        padding-top: 0.5rem !important;
+        padding-bottom: 2rem !important;
         padding-left: 0.5rem !important;
         padding-right: 0.5rem !important;
     }
     
-    /* 3. HEADER CỦA APP */
+    /* Header đẹp */
     .main-header {
         background: linear-gradient(to right, #007bff, #0056b3);
-        padding: 15px; 
-        border-radius: 10px; 
-        color: white; 
-        text-align: center !important;
-        font-weight: 700;
-        font-size: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-        margin-bottom: 15px;
+        padding: 15px; border-radius: 12px; color: white; 
+        text-align: center !important; font-weight: 700; font-size: 20px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 15px;
         text-transform: uppercase;
     }
     
-    /* 4. KHUNG KẾT QUẢ */
+    /* Khung thông tin */
     .report-card {
-        background: white; padding: 15px; 
-        border: 1px solid #ddd;
-        border-radius: 10px; 
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
-        margin-bottom: 15px;
+        background: white; padding: 15px; border: 1px solid #ddd;
+        border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
+        margin-bottom: 15px; color: #333;
     }
     .school-name { 
-        color: #cc0000; font-weight: 900; font-size: 15px; 
+        color: #cc0000; font-weight: 900; font-size: 16px; 
         text-transform: uppercase; text-align: center; margin-bottom: 5px;
     }
     
-    /* 5. GRID TỔNG KẾT (2 CỘT) */
+    /* Grid Tổng kết */
     .summary-grid { 
         display: grid; grid-template-columns: repeat(2, 1fr); 
         gap: 8px; margin-top: 15px; 
     }
     .summary-item { 
         background: #f1f3f5; padding: 10px; border-radius: 8px; 
-        border-left: 3px solid #007bff; text-align: center; 
+        border-left: 4px solid #007bff; text-align: center; 
     }
     .summary-val { font-size: 15px; font-weight: bold; color: #333; margin-top: 2px; display:block;}
     
-    /* 6. NÚT BẤM (TO, DỄ BẤM TRÊN MOBILE) */
+    /* Nút bấm to dễ bấm */
     .stButton>button {
-        width: 100% !important;
-        border-radius: 10px;
-        height: 48px; /* Chiều cao chuẩn ngón tay */
-        font-weight: bold;
-        font-size: 16px;
-        border: none;
+        width: 100% !important; border-radius: 10px; height: 48px;
+        font-weight: bold; font-size: 16px; border: none;
         box-shadow: 0 2px 4px rgba(0,0,0,0.15);
     }
     
-    /* 7. NÚT ADMIN Ở CUỐI (TÁCH BIỆT) */
+    /* Nút Admin ở cuối trang */
     .admin-btn-zone {
-        margin-top: 40px;
-        padding-top: 20px;
-        border-top: 1px dashed #ccc;
-        text-align: center;
-        margin-bottom: 0px; /* Bỏ khoảng trắng dưới cùng */
+        margin-top: 40px; padding-top: 20px; border-top: 1px dashed #ccc;
+        text-align: center; margin-bottom: 20px;
     }
     
-    /* Tinh chỉnh bảng điểm cho mobile */
+    /* Tinh chỉnh bảng điểm (Table) */
     .stTable { font-size: 13px; }
-    div[data-testid="stTable"] td { padding: 8px 4px !important; } /* Thu nhỏ padding ô */
+    div[data-testid="stTable"] td { padding: 8px 2px !important; }
+    
+    /* Vùng xóa dữ liệu */
+    .del-section {
+        border: 1px solid #ffcccc; background-color: #fff5f5; 
+        padding: 10px; border-radius: 8px; margin-bottom: 10px;
+    }
+    .del-title { color: #cc0000; font-weight: bold; font-size: 14px; text-transform: uppercase;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -116,46 +110,61 @@ def load_excel_robust(file):
             return {f"Sheet {i+1}": df for i, df in enumerate(dfs)}
         except: return None
 
-# --- HÀM XÓA DỮ LIỆU ---
+# --- 4. HÀM QUẢN LÝ DỮ LIỆU (FIREBASE) ---
+
 def delete_data_granular(db, collection_name, cls, sem=None):
+    """Xóa dữ liệu chi tiết theo Lớp và Kỳ"""
     deleted_count = 0
     try:
         ref = db.collection(collection_name)
         if cls == "Tất cả": query = ref
         else: query = ref.where('cls', '==', cls)
+        
         if sem: query = query.where('sem', '==', sem)
         
         docs = query.stream()
         batch = db.batch(); batch_count = 0
+        
         for doc in docs:
             batch.delete(doc.reference)
             batch_count += 1; deleted_count += 1
-            if batch_count >= 400: batch.commit(); batch = db.batch(); batch_count = 0
+            if batch_count >= 400: 
+                batch.commit(); batch = db.batch(); batch_count = 0
         if batch_count > 0: batch.commit()
-    except Exception as e: st.error(f"Lỗi: {e}")
+            
+    except Exception as e: st.error(f"Lỗi xóa: {e}")
     return deleted_count
 
-# --- HÀM UPLOAD ---
 def upload_to_firebase(db, file, sem_default, cls, type_file):
     count = 0
     try:
         batch = db.batch(); batch_count = 0
+        
         if type_file == 'score':
             xls_data = load_excel_robust(file)
             if not xls_data: return 0
+            
             for sheet_name, df in xls_data.items():
+                # Bỏ qua sheet rác
                 if any(x in str(sheet_name).lower() for x in ["hướng dẫn", "bìa"]): continue
+                
+                # Tìm header
                 h_idx = -1
                 for i, row in df.iterrows():
-                    if row.astype(str).str.contains("Mã học sinh", case=False).any(): h_idx = i; break
+                    if row.astype(str).str.contains("Mã học sinh", case=False).any():
+                        h_idx = i; break
+                
                 if h_idx != -1:
-                    df.columns = df.iloc[h_idx]; df = df.iloc[h_idx+1:]
+                    df.columns = df.iloc[h_idx]
+                    df = df.iloc[h_idx+1:]
                     cols = df.columns.tolist()
                     idx_ma = next((i for i, c in enumerate(cols) if "Mã học sinh" in str(c)), -1)
+                    
                     if idx_ma != -1:
                         for _, row in df.iterrows():
                             ma_hs = safe_str(row.iloc[idx_ma])
                             if len(ma_hs) > 3:
+                                # Update HS (Dùng merge an toàn)
                                 try: 
                                     ten_hs = safe_str(row.iloc[idx_ma-2])
                                     ref_st = db.collection('students').document(ma_hs)
@@ -164,12 +173,16 @@ def upload_to_firebase(db, file, sem_default, cls, type_file):
                                     if not doc_snap.exists: st_data['active'] = 0
                                     batch.set(ref_st, st_data, merge=True)
                                 except: pass
+
+                                # Update Điểm
                                 def g(off): 
                                     try: return safe_str(row.iloc[idx_ma+off])
                                     except: return ""
+                                
                                 tx = "  ".join([g(k) for k in range(1,10) if g(k)])
                                 safe_sub = str(sheet_name).strip().replace("/", "-")
                                 doc_id = f"{ma_hs}_{sem_default}_{safe_sub}"
+                                
                                 ref_sc = db.collection('scores').document(doc_id)
                                 batch.set(ref_sc, {
                                     'id': ma_hs, 'sub': safe_sub, 'sem': sem_default, 'cls': cls,
@@ -179,14 +192,17 @@ def upload_to_firebase(db, file, sem_default, cls, type_file):
                                 count += 1; batch_count += 1
                                 if batch_count >= 300: batch.commit(); batch = db.batch(); batch_count = 0
             batch.commit()
+
         elif type_file == 'summary':
             try: df = pd.read_excel(file)
             except: df = pd.read_csv(file)
             if 'Mã học sinh' not in df.columns:
                 for i, row in df.iterrows():
-                    if row.astype(str).str.contains("Mã học sinh").any(): df.columns = df.iloc[i]; df = df.iloc[i+1:]; break
+                    if row.astype(str).str.contains("Mã học sinh").any():
+                        df.columns = df.iloc[i]; df = df.iloc[i+1:]; break
             df.columns = df.columns.str.strip()
             has_loai_tk = 'Loại TK' in df.columns
+            
             for _, row in df.iterrows():
                 ma = safe_str(row.get('Mã học sinh'))
                 if len(ma) > 3:
@@ -196,6 +212,7 @@ def upload_to_firebase(db, file, sem_default, cls, type_file):
                         if 'HK1' in val_loai or '1' in val_loai: current_sem = 'HK1'
                         elif 'HK2' in val_loai or '2' in val_loai: current_sem = 'HK2'
                         elif 'CN' in val_loai or 'CẢ NĂM' in val_loai: current_sem = 'CN'
+                    
                     doc_id = f"{ma}_{current_sem}_summary"
                     ref_sum = db.collection('summary').document(doc_id)
                     batch.set(ref_sum, {
@@ -207,23 +224,24 @@ def upload_to_firebase(db, file, sem_default, cls, type_file):
                     count += 1; batch_count += 1
                     if batch_count >= 300: batch.commit(); batch = db.batch(); batch_count = 0
             batch.commit()
-    except Exception as e: st.error(f"Lỗi: {e}")
+    except Exception as e: st.error(f"Lỗi: {e}"); print(e)
     return count
 
-# --- 4. GIAO DIỆN ADMIN (GIỮ NGUYÊN) ---
+# --- 5. GIAO DIỆN ADMIN ---
 def view_admin(db):
     st.markdown('<div class="main-header">🛠️ QUẢN TRỊ VIÊN</div>', unsafe_allow_html=True)
     if st.button("Đăng xuất"): st.session_state.page = 'login'; st.rerun()
     
     if st.text_input("Mật khẩu:", type="password") == "admin123":
-        t1, t2, t3 = st.tabs(["UPLOAD DỮ LIỆU", "KÍCH HOẠT", "QUẢN LÝ XÓA"])
+        t1, t2, t3 = st.tabs(["📤 UPLOAD", "✅ KÍCH HOẠT", "🗑️ XÓA DỮ LIỆU"])
         
+        # TAB 1: UPLOAD
         with t1:
             cls = st.selectbox("Chọn Lớp:", [f"Lớp {i}" for i in range(6, 13)])
             c1, c2 = st.columns(2)
             f1 = c1.file_uploader(f"Điểm HK1 {cls}", key="f1")
             f2 = c1.file_uploader(f"Điểm HK2 {cls}", key="f2")
-            tk = st.file_uploader(f"File Tổng Kết {cls}", key="tk")
+            tk = st.file_uploader(f"Tổng Kết {cls} (All)", key="tk")
             
             if st.button("LƯU LÊN CLOUD", type="primary", use_container_width=True):
                 with st.spinner("Đang đồng bộ..."):
@@ -233,8 +251,8 @@ def view_admin(db):
                     if tk: cnt += upload_to_firebase(db, tk, "HK1", cls, 'summary') 
                     st.success(f"Xong! {cnt} bản ghi.")
 
+        # TAB 2: KÍCH HOẠT
         with t2:
-            st.info("Tick 'Active' để mở quyền xem điểm.")
             flt = st.selectbox("Lọc Lớp:", ["Tất cả"] + [f"Lớp {i}" for i in range(6, 13)])
             ref = db.collection('students')
             docs = ref.where('cls', '==', flt).stream() if flt != "Tất cả" else ref.stream()
@@ -256,20 +274,27 @@ def view_admin(db):
                     st.success("Đã lưu!")
             else: st.warning("Chưa có dữ liệu.")
 
+        # TAB 3: XÓA DỮ LIỆU (GRANULAR)
         with t3:
-            st.warning("⚠️ Chú ý: Dữ liệu đã xóa sẽ không thể khôi phục!")
+            st.warning("⚠️ Cẩn thận: Dữ liệu xóa không thể khôi phục!")
             cls_del = st.selectbox("Chọn Lớp cần xóa:", ["Tất cả"] + [f"Lớp {i}" for i in range(6, 13)], key="del_cls")
             
             c_d1, c_d2 = st.columns(2)
             with c_d1:
+                st.markdown('<div class="del-section"><div class="del-title">1. ĐIỂM CHI TIẾT</div>', unsafe_allow_html=True)
                 d_sc_hk1 = st.checkbox(f"Xóa Điểm HK1")
                 d_sc_hk2 = st.checkbox(f"Xóa Điểm HK2")
+                st.markdown('</div>', unsafe_allow_html=True)
             with c_d2:
+                st.markdown('<div class="del-section"><div class="del-title">2. TỔNG KẾT</div>', unsafe_allow_html=True)
                 d_sum_hk1 = st.checkbox(f"Xóa TK HK1")
                 d_sum_hk2 = st.checkbox(f"Xóa TK HK2")
                 d_sum_cn = st.checkbox(f"Xóa TK Cả Năm")
+                st.markdown('</div>', unsafe_allow_html=True)
             
-            d_student = st.checkbox(f"Xóa Danh sách HS ({cls_del})")
+            st.markdown('<div class="del-section"><div class="del-title">3. TÀI KHOẢN</div>', unsafe_allow_html=True)
+            d_student = st.checkbox(f"Xóa Danh Sách Học Sinh (Mất quyền đăng nhập)")
+            st.markdown('</div>', unsafe_allow_html=True)
             
             if st.button("🚨 THỰC HIỆN XÓA", type="primary", use_container_width=True):
                 if not any([d_sc_hk1, d_sc_hk2, d_sum_hk1, d_sum_hk2, d_sum_cn, d_student]):
@@ -284,16 +309,12 @@ def view_admin(db):
                         if d_student: delete_data_granular(db, 'students', cls_del, None)
                         st.success("Đã xóa xong!")
 
-# --- 5. GIAO DIỆN HỌC SINH (MOBILE) ---
+# --- 6. GIAO DIỆN HỌC SINH ---
 def view_student(db):
-    # Tiêu đề căn giữa, to rõ
-    st.markdown('<div class="main-header">🔥 TRA CỨU ĐIỂM TUY ĐỨC SCHOOL</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">🔥 TRA CỨU ĐIỂM THI TUY ĐỨC SCHOOL</div>', unsafe_allow_html=True)
 
     if 'user' not in st.session_state:
-        # Form nhập liệu
         mid = st.text_input("Nhập Mã Học Sinh:", placeholder="Ví dụ: 2411...").strip()
-        
-        # Nút bấm Full Width
         if st.button("TRA CỨU NGAY", type="primary", use_container_width=True):
             doc = db.collection('students').document(mid).get()
             if not doc.exists: st.error("Sai mã học sinh!")
@@ -301,7 +322,6 @@ def view_student(db):
             else: st.session_state.user = doc.to_dict(); st.rerun()
     else:
         u = st.session_state.user
-        
         st.markdown(f"""
         <div class="report-card">
             <div class="school-name">TRƯỜNG PT DTNT THCS&THPT TUY ĐỨC</div>
@@ -321,6 +341,7 @@ def view_student(db):
         
         if data:
             df = pd.DataFrame(data)
+            # Sắp xếp môn
             def sort_priority(s):
                 s = str(s).lower()
                 if 'toán' in s: return 0
@@ -329,11 +350,15 @@ def view_student(db):
                 return 3
             df['priority'] = df['sub'].apply(sort_priority)
             df = df.sort_values(by=['priority', 'sub'])
+            
+            # Đánh số thứ tự (STT) chuẩn từ 1
             df['STT'] = range(1, len(df) + 1)
             
-            renames = {'sub': 'Môn', 'tx': 'TX', 'gk': 'GK', 'ck': 'CK', 'tb': 'TBHK2', 'cn': 'TBCN'}
+            renames = {'sub': 'Môn', 'tx': 'TX', 'gk': 'GK', 'ck': 'CK', 'tb': 'TBHK2', 'cn': 'CN'}
             cols = ['STT', 'Môn', 'TX', 'GK', 'CK', 'TB']
             if sem == 'HK2': cols.append('CN')
+            
+            # Hiển thị bảng Table (không cuộn)
             st.table(df.rename(columns=renames)[cols].set_index('STT'))
         else: st.info("Chưa có điểm.")
         
@@ -355,6 +380,7 @@ def view_student(db):
                 {card("Danh hiệu", tk_d.get('dh'))}
             </div>
             """, unsafe_allow_html=True)
+        else: st.caption("Chưa có dữ liệu.")
         
         if sem == 'HK2' and tk_cn_d:
             st.markdown("---")
@@ -374,7 +400,7 @@ def view_student(db):
         if st.button("⬅️ TRA CỨU KHÁC", use_container_width=True): 
             del st.session_state.user; st.rerun()
 
-    # Nút Admin ở cuối trang (Footer)
+    # Nút Admin ở cuối trang
     st.markdown('<div class="admin-btn-zone">', unsafe_allow_html=True)
     if st.button("⚙️ Admin", type="secondary"): 
         st.session_state.page = 'admin'; st.rerun()
@@ -389,7 +415,3 @@ if __name__ == "__main__":
         else: view_student(db)
     except Exception as e:
         st.error("Lỗi hệ thống."); print(e)
-
-
-
-
