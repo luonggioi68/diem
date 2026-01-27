@@ -1,18 +1,22 @@
-import streamlit as st
-import json
-
-st.write("Đang kiểm tra kết nối...")
-
+st.write("--- ĐANG KIỂM TRA KẾT NỐI ---")
 try:
-    # Thử đọc key
-    key_info = json.loads(st.secrets["textkey"])
-    st.success("✅ Đã đọc được Key bảo mật!")
-    st.write("Project ID:", key_info.get("project_id"))
+    # 1. Thử đọc Secrets
+    test_key = st.secrets["firebase"]
+    st.success(f"✅ Đã đọc được Secrets! Project ID: {test_key.get('project_id')}")
     
-    # Thử import thư viện
-    import firebase_admin
-    st.success("✅ Đã cài đặt thư viện firebase-admin!")
+    # 2. Thử tạo credentials
+    key_dict = dict(test_key)
+    key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
+    cred = credentials.Certificate(key_dict)
+    st.success("✅ Chứng chỉ bảo mật hợp lệ!")
+    
+    # 3. Thử kết nối
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app(cred)
+    db = firestore.client()
+    st.success("✅ KẾT NỐI FIREBASE THÀNH CÔNG!")
     
 except Exception as e:
-    st.error("❌ CÓ LỖI XẢY RA:")
-    st.code(str(e))
+    st.error("❌ LỖI KẾT NỐI:")
+    st.code(str(e)) # Nó sẽ hiện chi tiết lỗi là gì
+    st.stop() # Dừng chương trình để thầy đọc lỗi
