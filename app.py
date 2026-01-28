@@ -2,14 +2,12 @@ import streamlit as st
 import pandas as pd
 import firebase_admin
 from firebase_admin import credentials, firestore
-from datetime import datetime
 
-# --- 1. CẤU HÌNH & KẾT NỐI ---
+# --- 1. CẤU HÌNH & DANH SÁCH NĂM ---
 st.set_page_config(page_title="Hồ Sơ Học Tập Số", page_icon="🎓", layout="wide")
 
-# Danh sách năm học (Tự động cập nhật hoặc fix cứng)
+# Danh sách các năm học hỗ trợ (Thầy có thể thêm thoải mái vào đây)
 YEAR_LIST = [f"{y}-{y+1}" for y in range(2023, 2030)]
-CURRENT_YEAR = "2024-2025" # Mặc định
 
 def init_firebase():
     if not firebase_admin._apps:
@@ -65,10 +63,13 @@ st.markdown("""
     /* Admin Zone */
     .admin-zone { border: 1px dashed #ccc; padding: 15px; border-radius: 10px; background: #fdfdfd; margin-top: 20px;}
     .del-section { background-color: #fff5f5; padding: 10px; border-radius: 8px; margin-bottom: 5px; border: 1px solid #ffcccc;}
+    
+    /* Config Box */
+    .config-box { background: #e8f5e9; padding: 10px; border-radius: 8px; border: 1px solid #c8e6c9; margin-bottom: 15px; text-align: center;}
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. HÀM XỬ LÝ (LOGIC MỚI: KÈM NĂM HỌC) ---
+# --- 3. HÀM XỬ LÝ DATABASE ---
 def safe_str(val):
     if pd.isna(val) or str(val).lower() in ['nan', 'none', '']: return ""
     s = str(val).strip()
@@ -81,10 +82,21 @@ def load_excel_robust(file):
         try: file.seek(0); dfs = pd.read_html(file); return {f"Sheet {i+1}": df for i, df in enumerate(dfs)}
         except: return None
 
-# --- DATABASE OPERATIONS ---
+# --- HÀM CẤU HÌNH (MỚI) ---
+def get_current_year_config(db):
+    """Lấy năm học mặc định từ Firebase"""
+    try:
+        doc = db.collection('system_config').document('settings').get()
+        if doc.exists:
+            return doc.to_dict().get('default_year', '2024-2025')
+    except: pass
+    return '2024-2025' # Fallback nếu lỗi
+
+def set_current_year_config(db, year):
+    """Lưu năm học mặc định vào Firebase"""
+    db.collection('system_config').document('settings').set({'default_year': year}, merge=True)
 
 def delete_data_year(db, collection, year, cls, sem=None):
-    """Xóa dữ liệu theo Năm học, Lớp, Kỳ"""
     cnt = 0
     try:
         ref = db.collection(collection)
@@ -111,44 +123,32 @@ def upload_firebase(db, file, year, sem, cls, type_file):
             if not data: return 0
             for sname, df in data.items():
                 if any(x in str(sname).lower() for x in ["hướng dẫn", "bìa"]): continue
-                
-                # Tìm header
                 h_idx = -1
                 for i, row in df.iterrows():
                     if row.astype(str).str.contains("Mã học sinh", case=False).any(): h_idx = i; break
-                
                 if h_idx != -1:
                     df.columns = df.iloc[h_idx]; df = df.iloc[h_idx+1:]
                     cols = df.columns.tolist()
                     idx_ma = next((i for i,c in enumerate(cols) if "Mã học sinh" in str(c)), -1)
-                    
                     if idx_ma != -1:
                         for _, row in df.iterrows():
                             ma = safe_str(row.iloc[idx_ma])
                             if len(ma) > 3:
-                                # 1. Lưu Enrollment (Học sinh theo năm)
-                                # ID doc: MaHS_NamHoc -> Để quản lý active theo từng năm
                                 try:
                                     ten = safe_str(row.iloc[idx_ma-2])
                                     doc_st_id = f"{ma}_{year}"
                                     ref_st = db.collection('students').document(doc_st_id)
                                     snap = ref_st.get()
-                                    
                                     st_data = {'id': ma, 'name': ten, 'cls': cls, 'year': year}
-                                    if not snap.exists: st_data['active'] = 0 # Mặc định chưa kích hoạt
-                                    
+                                    if not snap.exists: st_data['active'] = 0
                                     batch.set(ref_st, st_data, merge=True)
                                 except: pass
 
-                                # 2. Lưu Điểm
                                 def g(o): 
                                     try: return safe_str(row.iloc[idx_ma+o])
                                     except: return ""
-                                
                                 sub = str(sname).strip().replace("/", "-")
-                                # ID: MaHS_Nam_Ky_Mon
                                 doc_id = f"{ma}_{year}_{sem}_{sub}"
-                                
                                 batch.set(db.collection('scores').document(doc_id), {
                                     'id': ma, 'year': year, 'sem': sem, 'cls': cls, 'sub': sub,
                                     'tx': "  ".join([g(k) for k in range(1,10) if g(k)]),
@@ -158,7 +158,6 @@ def upload_firebase(db, file, year, sem, cls, type_file):
                                 count += 1; b_cnt += 1
                                 if b_cnt >= 300: batch.commit(); batch = db.batch(); b_cnt = 0
             batch.commit()
-
         elif type_file == 'summary':
             try: df = pd.read_excel(file)
             except: df = pd.read_csv(file)
@@ -167,7 +166,6 @@ def upload_firebase(db, file, year, sem, cls, type_file):
                     if r.astype(str).str.contains("Mã học sinh").any(): df.columns = df.iloc[i]; df = df.iloc[i+1:]; break
             df.columns = df.columns.str.strip()
             has_loai = 'Loại TK' in df.columns
-            
             for _, row in df.iterrows():
                 ma = safe_str(row.get('Mã học sinh'))
                 if len(ma) > 3:
@@ -177,7 +175,6 @@ def upload_firebase(db, file, year, sem, cls, type_file):
                         if '1' in v: cur_sem = 'HK1'
                         elif '2' in v: cur_sem = 'HK2'
                         elif 'CN' in v or 'NAM' in v: cur_sem = 'CN'
-                    
                     doc_id = f"{ma}_{year}_{cur_sem}_sum"
                     batch.set(db.collection('summary').document(doc_id), {
                         'id': ma, 'year': year, 'sem': cur_sem, 'cls': cls,
@@ -191,21 +188,38 @@ def upload_firebase(db, file, year, sem, cls, type_file):
     except Exception as e: st.error(f"Lỗi: {e}")
     return count
 
-# --- 4. ADMIN ---
+# --- 4. ADMIN UI ---
 def view_admin(db):
     st.markdown('<div class="main-header">🛠️ QUẢN TRỊ VIÊN</div>', unsafe_allow_html=True)
     if st.button("Đăng xuất"): st.session_state.page = 'login'; st.rerun()
     
     if st.text_input("Mật khẩu:", type="password") == "admin123":
-        # CHỌN NĂM HỌC ĐỂ THAO TÁC
-        st.markdown("---")
-        col_y1, col_y2 = st.columns([1, 3])
-        year_sel = col_y1.selectbox("📅 Năm học làm việc:", YEAR_LIST, index=YEAR_LIST.index(CURRENT_YEAR))
-        col_y2.info(f"Đang thao tác dữ liệu cho năm học: **{year_sel}**")
+        # --- CẤU HÌNH NĂM HỌC ---
+        current_db_year = get_current_year_config(db)
         
+        st.markdown(f"""
+        <div class="config-box">
+            <b>Năm học đang kích hoạt: {current_db_year}</b><br>
+            <small>(Học sinh vào web sẽ thấy năm này đầu tiên)</small>
+        </div>
+        """, unsafe_allow_html=True)
+
+        col_y1, col_y2 = st.columns([2, 1])
+        with col_y1:
+            # Dropdown để admin chọn năm làm việc
+            year_sel = st.selectbox("📅 Chọn Năm học để làm việc:", YEAR_LIST, index=YEAR_LIST.index(current_db_year) if current_db_year in YEAR_LIST else 0)
+        with col_y2:
+            # Nút set default
+            if st.button("📌 Đặt làm Mặc định"):
+                set_current_year_config(db, year_sel)
+                st.success(f"Đã đặt {year_sel} làm mặc định!")
+                st.rerun()
+
+        st.markdown("---")
         t1, t2, t3 = st.tabs(["UPLOADER", "KÍCH HOẠT", "XÓA DỮ LIỆU"])
         
         with t1:
+            st.caption(f"Đang upload vào dữ liệu năm: **{year_sel}**")
             cls = st.selectbox("Lớp:", [f"Lớp {i}" for i in range(6, 13)])
             c1, c2 = st.columns(2)
             f1 = c1.file_uploader(f"Điểm HK1 {cls}", key="f1")
@@ -213,17 +227,15 @@ def view_admin(db):
             tk = st.file_uploader(f"Tổng Kết {cls}", key="tk")
             
             if st.button("LƯU DỮ LIỆU", type="primary"):
-                with st.spinner(f"Đang lưu vào năm {year_sel}..."):
+                with st.spinner(f"Đang xử lý {year_sel}..."):
                     c = 0
                     if f1: c += upload_firebase(db, f1, year_sel, "HK1", cls, 'score')
                     if f2: c += upload_firebase(db, f2, year_sel, "HK2", cls, 'score')
                     if tk: c += upload_firebase(db, tk, year_sel, "HK1", cls, 'summary')
-                    st.success(f"Đã lưu {c} bản ghi vào năm {year_sel}.")
+                    st.success(f"Đã lưu {c} bản ghi.")
 
         with t2:
             flt = st.selectbox("Lọc Lớp:", ["Tất cả"] + [f"Lớp {i}" for i in range(6, 13)])
-            
-            # Query theo năm học và lớp
             ref = db.collection('students').where('year', '==', year_sel)
             if flt != "Tất cả": ref = ref.where('cls', '==', flt)
             
@@ -232,30 +244,25 @@ def view_admin(db):
             
             if data:
                 df = pd.DataFrame(data)
-                # Đảm bảo active
                 if 'active' not in df.columns: df['active'] = 0
                 df['active'] = df['active'].apply(lambda x: bool(x))
-                
                 edited = st.data_editor(df[['active', 'id', 'name', 'cls']], 
                                       column_config={"active": st.column_config.CheckboxColumn("Kích hoạt", default=False)},
                                       disabled=['id', 'name', 'cls'], hide_index=True, use_container_width=True)
-                
                 if st.button("LƯU TRẠNG THÁI"):
                     batch = db.batch(); b_cnt = 0
                     for i, r in edited.iterrows():
-                        # Tìm ID Document gốc để update (MaHS_NamHoc)
                         doc_key = f"{r['id']}_{year_sel}"
                         batch.update(db.collection('students').document(doc_key), {'active': 1 if r['active'] else 0})
                         b_cnt += 1
                         if b_cnt >= 300: batch.commit(); batch = db.batch(); b_cnt = 0
                     batch.commit()
-                    st.success(f"Đã cập nhật trạng thái năm {year_sel}!")
-            else: st.warning(f"Chưa có dữ liệu học sinh năm {year_sel}.")
+                    st.success("Đã lưu!")
+            else: st.warning(f"Chưa có dữ liệu năm {year_sel}.")
 
         with t3:
-            st.warning(f"Đang ở chế độ xóa dữ liệu của năm: {year_sel}")
-            del_cls = st.selectbox("Lớp cần xóa:", ["Tất cả"] + [f"Lớp {i}" for i in range(6, 13)], key="del")
-            
+            st.warning(f"Đang xóa dữ liệu của năm: {year_sel}")
+            del_cls = st.selectbox("Lớp xóa:", ["Tất cả"] + [f"Lớp {i}" for i in range(6, 13)], key="del")
             c1, c2 = st.columns(2)
             with c1:
                 d_hk1 = st.checkbox("Xóa Điểm HK1")
@@ -263,8 +270,7 @@ def view_admin(db):
             with c2:
                 d_thk1 = st.checkbox("Xóa TK HK1")
                 d_thk2 = st.checkbox("Xóa TK HK2/CN")
-                
-            d_all = st.checkbox("Xóa Tài khoản & Danh sách lớp (Reset năm học)")
+            d_all = st.checkbox("Xóa Tài khoản HS (Reset năm)")
             
             if st.button("🚨 THỰC HIỆN XÓA", type="primary"):
                 with st.spinner("Deleting..."):
@@ -277,17 +283,22 @@ def view_admin(db):
                     if d_all: delete_data_year(db, 'students', year_sel, del_cls)
                     st.success("Đã xóa xong!")
 
-# --- 5. HỌC SINH ---
+# --- 5. HỌC SINH UI ---
 def view_student(db):
     st.markdown('<div class="main-header">HỒ SƠ HỌC TẬP SỐ</div>', unsafe_allow_html=True)
 
+    # Lấy năm mặc định từ hệ thống
+    default_year = get_current_year_config(db)
+
     if 'user' not in st.session_state:
-        # Chọn năm học trước khi đăng nhập
-        year_login = st.selectbox("Năm học:", YEAR_LIST, index=YEAR_LIST.index(CURRENT_YEAR))
+        # Chọn năm (Mặc định chọn năm config)
+        try: idx = YEAR_LIST.index(default_year)
+        except: idx = 0
+        year_login = st.selectbox("Năm học:", YEAR_LIST, index=idx)
+        
         mid = st.text_input("Mã Học Sinh:", placeholder="VD: 2411...").strip()
         
         if st.button("TRA CỨU", type="primary", use_container_width=True):
-            # Tìm document theo ID: MaHS_NamHoc
             doc_key = f"{mid}_{year_login}"
             doc = db.collection('students').document(doc_key).get()
             
@@ -297,7 +308,7 @@ def view_student(db):
                 st.warning(f"Tài khoản năm {year_login} chưa được kích hoạt/đóng phí.")
             else:
                 st.session_state.user = doc.to_dict()
-                st.session_state.year_view = year_login # Lưu năm đang xem
+                st.session_state.year_view = year_login
                 st.rerun()
     else:
         u = st.session_state.user
@@ -318,7 +329,6 @@ def view_student(db):
         ky = st.radio("", ["Học kỳ 1", "Học kỳ 2 & Cả năm"], horizontal=True)
         sem = "HK1" if "1" in ky else "HK2"
         
-        # Query điểm theo Năm + Mã + Kỳ
         docs = db.collection('scores').where('id', '==', u['id']).where('year', '==', year_view).where('sem', '==', sem).stream()
         data = [d.to_dict() for d in docs]
         
@@ -333,49 +343,20 @@ def view_student(db):
             df['p'] = df['sub'].apply(prio)
             df = df.sort_values(by=['p', 'sub'])
             df['STT'] = range(1, len(df)+1)
-            
             rn = {'sub': 'Môn', 'tx': 'TX', 'gk': 'GK', 'ck': 'CK', 'tb': 'TB', 'cn': 'CN'}
             cols = ['STT', 'Môn', 'TX', 'GK', 'CK', 'TB']
             if sem == 'HK2': cols.append('CN')
-            
             st.table(df.rename(columns=rn)[cols].set_index('STT'))
         else: st.info("Chưa có điểm.")
         
-        # TK
         doc_tk = f"{u['id']}_{year_view}_{sem}_sum"
         tk = db.collection('summary').document(doc_tk).get()
         tk_d = tk.to_dict() if tk.exists else {}
         
         def card(l, v): return f'<div class="summary-item"><small>{l}</small><div class="summary-val">{v if v else "-"}</div></div>'
-        
         st.markdown(f"**TỔNG KẾT {sem}**")
-        if tk_d:
-            st.markdown(f"""<div class="summary-grid">{card('Học lực', tk_d.get('ht'))}{card('Hạnh kiểm', tk_d.get('rl'))}{card('Vắng', tk_d.get('v'))}{card('Danh hiệu', tk_d.get('dh'))}</div>""", unsafe_allow_html=True)
+        if tk_d: st.markdown(f"""<div class="summary-grid">{card('Học lực', tk_d.get('ht'))}{card('Hạnh kiểm', tk_d.get('rl'))}{card('Vắng', tk_d.get('v'))}{card('Danh hiệu', tk_d.get('dh'))}</div>""", unsafe_allow_html=True)
         
         if sem == 'HK2':
             doc_cn = f"{u['id']}_{year_view}_CN_sum"
-            cn = db.collection('summary').document(doc_cn).get()
-            cn_d = cn.to_dict() if cn.exists else {}
-            if cn_d:
-                st.markdown("---")
-                st.markdown("**CẢ NĂM**")
-                st.markdown(f"""<div class="summary-grid">{card('Học lực', cn_d.get('ht'))}{card('Hạnh kiểm', cn_d.get('rl'))}{card('Danh hiệu', cn_d.get('dh'))}<div class="summary-item" style="border-color:red; background:#fff5f5"><small style="color:red">KẾT QUẢ</small><div class="summary-val" style="color:red">{cn_d.get('kq')}</div></div></div>""", unsafe_allow_html=True)
-
-        # Đổi năm xem hoặc thoát
-        c1, c2 = st.columns(2)
-        if c1.button("🔙 Đổi Năm Học"): del st.session_state.user; st.rerun()
-        if c2.button("Thoát"): del st.session_state.user; st.rerun()
-
-    # Admin Footer
-    st.markdown('<div class="admin-zone" style="text-align:center; border:none; margin-top:50px;">', unsafe_allow_html=True)
-    if st.button("⚙️", key="adm_btn"): st.session_state.page = 'admin'; st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# --- MAIN ---
-if __name__ == "__main__":
-    if 'page' not in st.session_state: st.session_state.page = 'login'
-    try:
-        db = init_firebase()
-        if st.session_state.page == 'admin': view_admin(db)
-        else: view_student(db)
-    except Exception as e: st.error("Lỗi hệ thống."); print(e)
+            cn = db.collection('
