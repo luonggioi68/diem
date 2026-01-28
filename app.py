@@ -317,7 +317,7 @@ def view_student(db):
         mid = st.text_input("Nhập Mã Học Sinh:", placeholder="Ví dụ: 2411...").strip()
         if st.button("TRA CỨU NGAY", type="primary", use_container_width=True):
             doc = db.collection('students').document(mid).get()
-            if not doc.exists: st.error("Sai mã học sinh!")
+            if not doc.exists: st.error("Sai mã học sinh!Liên hệ admin Zalo: 0383477162 để cấp tài khoản, Cân nhắc hệ thống có thu phí 15k/năm")
             elif doc.to_dict().get('active') != 1: st.warning("Tài khoản chưa được kích hoạt. Liên hệ admin Zalo: 0383477162 để kích hoạt, Cân nhắc hệ thống có thu phí 15k/năm")
             else: st.session_state.user = doc.to_dict(); st.rerun()
     else:
@@ -416,5 +416,6 @@ if __name__ == "__main__":
         else: view_student(db)
     except Exception as e:
         st.error("Lỗi hệ thống."); print(e)
+
 
 
