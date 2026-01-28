@@ -6,7 +6,7 @@ from firebase_admin import credentials, firestore
 # --- 1. CẤU HÌNH & DANH SÁCH NĂM ---
 st.set_page_config(page_title="Hồ Sơ Học Tập Số", page_icon="🎓", layout="wide")
 
-YEAR_LIST = [f"{y}-{y+1}" for y in range(2023, 2030)]
+YEAR_LIST = [f"{y}-{y+1}" for y in range(2025, 2030)]
 
 def init_firebase():
     if not firebase_admin._apps:
@@ -385,6 +385,7 @@ if __name__ == "__main__":
         if st.session_state.page == 'admin': view_admin(db)
         else: view_student(db)
     except Exception as e: st.error("Lỗi hệ thống."); print(e)
+
 
 
 
