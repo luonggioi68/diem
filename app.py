@@ -182,6 +182,7 @@ def upload_firebase(db, file, year, sem, cls, type_file):
     return count
 
 # --- 4. ADMIN UI ---
+# --- 4. ADMIN UI (ĐÃ TÁCH RIÊNG HK2 VÀ CẢ NĂM) ---
 def view_admin(db):
     st.markdown('<div class="main-header">🛠️ QUẢN TRỊ VIÊN</div>', unsafe_allow_html=True)
     if st.button("Đăng xuất"): st.session_state.page = 'login'; st.rerun()
@@ -228,8 +229,6 @@ def view_admin(db):
                 if 'active' not in df.columns: df['active'] = 0
                 df['active'] = df['active'].apply(lambda x: bool(x))
                 
-                # --- THÊM SỐ THỨ TỰ (STT) VÀO ADMIN ---
-                # Sắp xếp theo lớp và tên để STT đẹp hơn
                 df = df.sort_values(by=['cls', 'name'])
                 df.insert(0, 'STT', range(1, len(df) + 1))
                 
@@ -258,22 +257,32 @@ def view_admin(db):
             st.warning(f"Đang xóa dữ liệu năm: {year_sel}")
             del_cls = st.selectbox("Lớp xóa:", ["Tất cả"] + [f"Lớp {i}" for i in range(6, 13)], key="del")
             c1, c2 = st.columns(2)
+            
+            # --- CẬP NHẬT GIAO DIỆN XÓA TÁCH BIỆT ---
             with c1:
+                st.markdown("**1. Xóa Điểm Chi Tiết:**")
                 d_hk1 = st.checkbox("Xóa Điểm HK1")
                 d_hk2 = st.checkbox("Xóa Điểm HK2")
+                
             with c2:
+                st.markdown("**2. Xóa Tổng Kết:**")
                 d_thk1 = st.checkbox("Xóa TK HK1")
-                d_thk2 = st.checkbox("Xóa TK HK2/CN")
+                d_thk2 = st.checkbox("Xóa TK HK2")       # Tách riêng
+                d_tcn  = st.checkbox("Xóa TK Cả Năm")    # Tách riêng
+            
+            st.markdown("**3. Khác:**")
             d_all = st.checkbox("Xóa Tài khoản HS (Reset năm)")
             
             if st.button("🚨 THỰC HIỆN XÓA", type="primary"):
                 with st.spinner("Deleting..."):
+                    # Xử lý logic xóa tách biệt
                     if d_hk1: delete_data_year(db, 'scores', year_sel, del_cls, 'HK1')
                     if d_hk2: delete_data_year(db, 'scores', year_sel, del_cls, 'HK2')
+                    
                     if d_thk1: delete_data_year(db, 'summary', year_sel, del_cls, 'HK1')
-                    if d_thk2: 
-                        delete_data_year(db, 'summary', year_sel, del_cls, 'HK2')
-                        delete_data_year(db, 'summary', year_sel, del_cls, 'CN')
+                    if d_thk2: delete_data_year(db, 'summary', year_sel, del_cls, 'HK2') # Chỉ xóa HK2
+                    if d_tcn:  delete_data_year(db, 'summary', year_sel, del_cls, 'CN')  # Chỉ xóa Cả năm
+                    
                     if d_all: delete_data_year(db, 'students', year_sel, del_cls)
                     st.success("Đã xóa xong!")
 
@@ -385,6 +394,7 @@ if __name__ == "__main__":
         if st.session_state.page == 'admin': view_admin(db)
         else: view_student(db)
     except Exception as e: st.error("Lỗi hệ thống."); print(e)
+
 
 
 
