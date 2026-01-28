@@ -6,7 +6,6 @@ from firebase_admin import credentials, firestore
 # --- 1. CẤU HÌNH & DANH SÁCH NĂM ---
 st.set_page_config(page_title="Hồ Sơ Học Tập Số", page_icon="🎓", layout="wide")
 
-# Danh sách các năm học hỗ trợ (Thầy có thể thêm thoải mái vào đây)
 YEAR_LIST = [f"{y}-{y+1}" for y in range(2023, 2030)]
 
 def init_firebase():
@@ -62,9 +61,6 @@ st.markdown("""
     
     /* Admin Zone */
     .admin-zone { border: 1px dashed #ccc; padding: 15px; border-radius: 10px; background: #fdfdfd; margin-top: 20px;}
-    .del-section { background-color: #fff5f5; padding: 10px; border-radius: 8px; margin-bottom: 5px; border: 1px solid #ffcccc;}
-    
-    /* Config Box */
     .config-box { background: #e8f5e9; padding: 10px; border-radius: 8px; border: 1px solid #c8e6c9; margin-bottom: 15px; text-align: center;}
 </style>
 """, unsafe_allow_html=True)
@@ -82,18 +78,15 @@ def load_excel_robust(file):
         try: file.seek(0); dfs = pd.read_html(file); return {f"Sheet {i+1}": df for i, df in enumerate(dfs)}
         except: return None
 
-# --- HÀM CẤU HÌNH (MỚI) ---
+# --- CONFIG YEAR ---
 def get_current_year_config(db):
-    """Lấy năm học mặc định từ Firebase"""
     try:
         doc = db.collection('system_config').document('settings').get()
-        if doc.exists:
-            return doc.to_dict().get('default_year', '2024-2025')
+        if doc.exists: return doc.to_dict().get('default_year', '2024-2025')
     except: pass
-    return '2024-2025' # Fallback nếu lỗi
+    return '2024-2025'
 
 def set_current_year_config(db, year):
-    """Lưu năm học mặc định vào Firebase"""
     db.collection('system_config').document('settings').set({'default_year': year}, merge=True)
 
 def delete_data_year(db, collection, year, cls, sem=None):
@@ -194,32 +187,20 @@ def view_admin(db):
     if st.button("Đăng xuất"): st.session_state.page = 'login'; st.rerun()
     
     if st.text_input("Mật khẩu:", type="password") == "admin123":
-        # --- CẤU HÌNH NĂM HỌC ---
         current_db_year = get_current_year_config(db)
         
-        st.markdown(f"""
-        <div class="config-box">
-            <b>Năm học đang kích hoạt: {current_db_year}</b><br>
-            <small>(Học sinh vào web sẽ thấy năm này đầu tiên)</small>
-        </div>
-        """, unsafe_allow_html=True)
-
+        st.markdown(f"""<div class="config-box"><b>Năm học đang kích hoạt: {current_db_year}</b></div>""", unsafe_allow_html=True)
         col_y1, col_y2 = st.columns([2, 1])
-        with col_y1:
-            # Dropdown để admin chọn năm làm việc
-            year_sel = st.selectbox("📅 Chọn Năm học để làm việc:", YEAR_LIST, index=YEAR_LIST.index(current_db_year) if current_db_year in YEAR_LIST else 0)
-        with col_y2:
-            # Nút set default
-            if st.button("📌 Đặt làm Mặc định"):
-                set_current_year_config(db, year_sel)
-                st.success(f"Đã đặt {year_sel} làm mặc định!")
-                st.rerun()
+        year_sel = col_y1.selectbox("📅 Năm làm việc:", YEAR_LIST, index=YEAR_LIST.index(current_db_year) if current_db_year in YEAR_LIST else 0)
+        if col_y2.button("📌 Đặt làm Mặc định"):
+            set_current_year_config(db, year_sel)
+            st.success(f"Đã đặt {year_sel} làm mặc định!"); st.rerun()
 
         st.markdown("---")
         t1, t2, t3 = st.tabs(["UPLOADER", "KÍCH HOẠT", "XÓA DỮ LIỆU"])
         
         with t1:
-            st.caption(f"Đang upload vào dữ liệu năm: **{year_sel}**")
+            st.caption(f"Upload vào năm: **{year_sel}**")
             cls = st.selectbox("Lớp:", [f"Lớp {i}" for i in range(6, 13)])
             c1, c2 = st.columns(2)
             f1 = c1.file_uploader(f"Điểm HK1 {cls}", key="f1")
@@ -246,9 +227,22 @@ def view_admin(db):
                 df = pd.DataFrame(data)
                 if 'active' not in df.columns: df['active'] = 0
                 df['active'] = df['active'].apply(lambda x: bool(x))
-                edited = st.data_editor(df[['active', 'id', 'name', 'cls']], 
-                                      column_config={"active": st.column_config.CheckboxColumn("Kích hoạt", default=False)},
-                                      disabled=['id', 'name', 'cls'], hide_index=True, use_container_width=True)
+                
+                # --- THÊM SỐ THỨ TỰ (STT) VÀO ADMIN ---
+                # Sắp xếp theo lớp và tên để STT đẹp hơn
+                df = df.sort_values(by=['cls', 'name'])
+                df.insert(0, 'STT', range(1, len(df) + 1))
+                
+                edited = st.data_editor(df[['active', 'STT', 'id', 'name', 'cls']], 
+                                      column_config={
+                                          "active": st.column_config.CheckboxColumn("Kích hoạt", default=False),
+                                          "STT": st.column_config.NumberColumn("STT", width="small", disabled=True),
+                                          "id": st.column_config.TextColumn("Mã HS", disabled=True),
+                                          "name": st.column_config.TextColumn("Họ tên", disabled=True),
+                                          "cls": st.column_config.TextColumn("Lớp", disabled=True)
+                                      },
+                                      hide_index=True, use_container_width=True)
+                
                 if st.button("LƯU TRẠNG THÁI"):
                     batch = db.batch(); b_cnt = 0
                     for i, r in edited.iterrows():
@@ -261,7 +255,7 @@ def view_admin(db):
             else: st.warning(f"Chưa có dữ liệu năm {year_sel}.")
 
         with t3:
-            st.warning(f"Đang xóa dữ liệu của năm: {year_sel}")
+            st.warning(f"Đang xóa dữ liệu năm: {year_sel}")
             del_cls = st.selectbox("Lớp xóa:", ["Tất cả"] + [f"Lớp {i}" for i in range(6, 13)], key="del")
             c1, c2 = st.columns(2)
             with c1:
@@ -286,26 +280,19 @@ def view_admin(db):
 # --- 5. HỌC SINH UI ---
 def view_student(db):
     st.markdown('<div class="main-header">HỒ SƠ HỌC TẬP SỐ</div>', unsafe_allow_html=True)
-
-    # Lấy năm mặc định từ hệ thống
     default_year = get_current_year_config(db)
 
     if 'user' not in st.session_state:
-        # Chọn năm (Mặc định chọn năm config)
         try: idx = YEAR_LIST.index(default_year)
         except: idx = 0
         year_login = st.selectbox("Năm học:", YEAR_LIST, index=idx)
-        
         mid = st.text_input("Mã Học Sinh:", placeholder="VD: 2411...").strip()
         
         if st.button("TRA CỨU", type="primary", use_container_width=True):
             doc_key = f"{mid}_{year_login}"
             doc = db.collection('students').document(doc_key).get()
-            
-            if not doc.exists:
-                st.error(f"Không tìm thấy dữ liệu năm {year_login}!")
-            elif doc.to_dict().get('active') != 1:
-                st.warning(f"Tài khoản năm {year_login} chưa được kích hoạt/đóng phí.")
+            if not doc.exists: st.error(f"Không tìm thấy dữ liệu năm {year_login}!")
+            elif doc.to_dict().get('active') != 1: st.warning(f"Chưa kích hoạt năm {year_login}.")
             else:
                 st.session_state.user = doc.to_dict()
                 st.session_state.year_view = year_login
@@ -334,15 +321,31 @@ def view_student(db):
         
         if data:
             df = pd.DataFrame(data)
-            def prio(s):
-                s=s.lower()
+            
+            # --- LOGIC SẮP XẾP MÔN HỌC ---
+            def sort_priority(row):
+                s = str(row['sub']).lower()
+                
+                # 1. Môn ưu tiên hàng đầu
                 if 'toán' in s: return 0
                 if 'văn' in s or 'ngữ văn' in s: return 1
                 if 'anh' in s or 'ngoại ngữ' in s: return 2
-                return 3
-            df['p'] = df['sub'].apply(prio)
-            df = df.sort_values(by=['p', 'sub'])
+                
+                # 2. Phát hiện môn Đánh giá (Đ/CĐ)
+                # Dựa vào tên môn học thường gặp
+                eval_subs = ['thể chất', 'gdtc', 'quốc phòng', 'gdqp', 'trải nghiệm', 'hđtn', 'địa phương', 'nghệ thuật', 'âm nhạc', 'mỹ thuật']
+                if any(x in s for x in eval_subs): return 20 # Đẩy xuống cuối
+                
+                # 3. Các môn còn lại (Lý, Hóa, Sinh, Sử, Địa...)
+                return 10 
+            
+            df['priority'] = df.apply(sort_priority, axis=1)
+            # Sắp xếp theo Priority tăng dần -> sau đó theo Tên môn
+            df = df.sort_values(by=['priority', 'sub'])
+            
+            # Đánh STT
             df['STT'] = range(1, len(df)+1)
+            
             rn = {'sub': 'Môn', 'tx': 'TX', 'gk': 'GK', 'ck': 'CK', 'tb': 'TB', 'cn': 'CN'}
             cols = ['STT', 'Môn', 'TX', 'GK', 'CK', 'TB']
             if sem == 'HK2': cols.append('CN')
