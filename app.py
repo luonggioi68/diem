@@ -65,10 +65,8 @@ st.markdown("""
       .copyright {
         background: #33CCFF;
         padding: 15px; border-radius: 12px; color: white; 
-        text-align: center; font-weight: 700; font-size: 13px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2); margin-bottom: 5px;
-        text-transform: uppercase; letter-spacing: 1px;
-    }
+        text-align: center; font-size: 13px;
+      }
 </style>
 """, unsafe_allow_html=True)
 
@@ -402,6 +400,7 @@ if __name__ == "__main__":
         if st.session_state.page == 'admin': view_admin(db)
         else: view_student(db)
     except Exception as e: st.error("Lỗi hệ thống."); print(e)
+
 
 
 
