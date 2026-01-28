@@ -359,4 +359,25 @@ def view_student(db):
         
         if sem == 'HK2':
             doc_cn = f"{u['id']}_{year_view}_CN_sum"
-            cn = db.collection('
+            cn = db.collection('summary').document(doc_cn).get()
+            cn_d = cn.to_dict() if cn.exists else {}
+            if cn_d:
+                st.markdown("---")
+                st.markdown("**CẢ NĂM**")
+                st.markdown(f"""<div class="summary-grid">{card('Học lực', cn_d.get('ht'))}{card('Hạnh kiểm', cn_d.get('rl'))}{card('Danh hiệu', cn_d.get('dh'))}<div class="summary-item" style="border-color:red; background:#fff5f5"><small style="color:red">KẾT QUẢ</small><div class="summary-val" style="color:red">{cn_d.get('kq')}</div></div></div>""", unsafe_allow_html=True)
+
+        c1, c2 = st.columns(2)
+        if c1.button("🔙 Đổi Năm"): del st.session_state.user; st.rerun()
+        if c2.button("Thoát"): del st.session_state.user; st.rerun()
+
+    st.markdown('<div class="admin-zone" style="text-align:center; border:none; margin-top:50px;">', unsafe_allow_html=True)
+    if st.button("⚙️", key="adm_btn"): st.session_state.page = 'admin'; st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+if __name__ == "__main__":
+    if 'page' not in st.session_state: st.session_state.page = 'login'
+    try:
+        db = init_firebase()
+        if st.session_state.page == 'admin': view_admin(db)
+        else: view_student(db)
+    except Exception as e: st.error("Lỗi hệ thống."); print(e)
