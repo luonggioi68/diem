@@ -32,7 +32,7 @@ st.markdown("""
     .main-header {
         background: blue;
         padding: 15px; border-radius: 12px; color: white; 
-        text-align: center; font-weight: 700; font-size: 20px;
+        text-align: center; font-weight: 700; font-size: 16px;
         box-shadow: 0 4px 10px rgba(0,0,0,0.2); margin-bottom: 15px;
         text-transform: uppercase; letter-spacing: 1px;
     }
@@ -64,8 +64,7 @@ st.markdown("""
     .config-box { background: #e8f5e9; padding: 10px; border-radius: 8px; border: 1px solid #c8e6c9; margin-bottom: 15px; text-align: center;}
       .copyright {
         background: #33CCFF;
-        padding: 15px; border-radius: 12px; color: white; 
-        text-align: center; font-size: 13px;
+       text-align: center; font-size: 13px;
       }
 </style>
 """, unsafe_allow_html=True)
@@ -294,7 +293,7 @@ def view_admin(db):
 # --- 5. HỌC SINH UI ---
 def view_student(db):
    
-    st.markdown('<div class="main-header">TRA CỨU ĐIỂM - HỒ SƠ HỌC TẬP SỐ <br> Trường PT DTNT THCS&THPT Tuy Đức</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">TRA CỨU ĐIỂM <br> Trường PT DTNT THCS&THPT Tuy Đức</div>', unsafe_allow_html=True)
     default_year = get_current_year_config(db)
 
     if 'user' not in st.session_state:
@@ -401,6 +400,7 @@ if __name__ == "__main__":
         else: view_student(db)
     except Exception as e: st.error("Lỗi hệ thống."); print(e)
 st.markdown('<div class="copyright">Copyright©2026 - Lương Văn Giỏi-0383477162</div>', unsafe_allow_html=True)
+
 
 
 
