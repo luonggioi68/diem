@@ -392,7 +392,7 @@ def view_student(db):
     if st.button("⚙️", key="adm_btn"): st.session_state.page = 'admin'; st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="copyright">Copyright©2026 - Lương Văn Giỏi-0383477162</div>', unsafe_allow_html=True)
+    
 if __name__ == "__main__":
     if 'page' not in st.session_state: st.session_state.page = 'login'
     try:
@@ -400,6 +400,7 @@ if __name__ == "__main__":
         if st.session_state.page == 'admin': view_admin(db)
         else: view_student(db)
     except Exception as e: st.error("Lỗi hệ thống."); print(e)
+st.markdown('<div class="copyright">Copyright©2026 - Lương Văn Giỏi-0383477162</div>', unsafe_allow_html=True)
 
 
 
