@@ -30,7 +30,7 @@ st.markdown("""
     
     /* Header */
     .main-header {
-        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+        background: blue;
         padding: 15px; border-radius: 12px; color: white; 
         text-align: center; font-weight: 700; font-size: 20px;
         box-shadow: 0 4px 10px rgba(0,0,0,0.2); margin-bottom: 15px;
@@ -385,5 +385,6 @@ if __name__ == "__main__":
         if st.session_state.page == 'admin': view_admin(db)
         else: view_student(db)
     except Exception as e: st.error("Lỗi hệ thống."); print(e)
+
 
 
