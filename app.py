@@ -63,7 +63,7 @@ st.markdown("""
     .admin-zone { border: 1px dashed #ccc; padding: 15px; border-radius: 10px; background: #fdfdfd; margin-top: 20px;}
     .config-box { background: #e8f5e9; padding: 10px; border-radius: 8px; border: 1px solid #c8e6c9; margin-bottom: 15px; text-align: center;}
       .copyright {
-        background: blue;
+        background: #33CCFF;
         padding: 15px; border-radius: 12px; color: white; 
         text-align: center; font-weight: 700; font-size: 13px;
         box-shadow: 0 4px 10px rgba(0,0,0,0.2); margin-bottom: 5px;
@@ -402,6 +402,7 @@ if __name__ == "__main__":
         if st.session_state.page == 'admin': view_admin(db)
         else: view_student(db)
     except Exception as e: st.error("Lỗi hệ thống."); print(e)
+
 
 
 
