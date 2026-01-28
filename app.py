@@ -279,7 +279,8 @@ def view_admin(db):
 
 # --- 5. HỌC SINH UI ---
 def view_student(db):
-    st.markdown('<div class="main-header">HỒ SƠ HỌC TẬP SỐ</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">TRƯỜNG PT DTNT THCS&THPT TUY ĐỨC</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">TRA CỨU ĐIỂM - HỒ SƠ HỌC TẬP SỐ</div>', unsafe_allow_html=True)
     default_year = get_current_year_config(db)
 
     if 'user' not in st.session_state:
@@ -291,8 +292,8 @@ def view_student(db):
         if st.button("TRA CỨU", type="primary", use_container_width=True):
             doc_key = f"{mid}_{year_login}"
             doc = db.collection('students').document(doc_key).get()
-            if not doc.exists: st.error(f"Không tìm thấy dữ liệu năm {year_login}!")
-            elif doc.to_dict().get('active') != 1: st.warning(f"Chưa kích hoạt năm {year_login}.")
+            if not doc.exists: st.error(f"Không tìm thấy dữ liệu năm {year_login}!Liên hệ admin zalo: 0383477162 để đăng kí tài khoản, Cân nhắc phí thu 15k/năm học")
+            elif doc.to_dict().get('active') != 1: st.warning(f"Chưa kích hoạt năm {year_login}.Liên hệ admin zalo: 0383477162 để kích hoạt tài khoản, Cân nhắc phí thu 15k/năm học")
             else:
                 st.session_state.user = doc.to_dict()
                 st.session_state.year_view = year_login
@@ -384,3 +385,4 @@ if __name__ == "__main__":
         if st.session_state.page == 'admin': view_admin(db)
         else: view_student(db)
     except Exception as e: st.error("Lỗi hệ thống."); print(e)
+
