@@ -2,15 +2,19 @@ import streamlit as st
 import pandas as pd
 import firebase_admin
 from firebase_admin import credentials, firestore
+from datetime import datetime
 
-# --- 1. CẤU HÌNH & KẾT NỐI FIREBASE ---
-st.set_page_config(page_title="Hệ Thống Tra Cứu Điểm", page_icon="🔥", layout="wide")
+# --- 1. CẤU HÌNH & KẾT NỐI ---
+st.set_page_config(page_title="Hồ Sơ Học Tập Số", page_icon="🎓", layout="wide")
+
+# Danh sách năm học (Tự động cập nhật hoặc fix cứng)
+YEAR_LIST = [f"{y}-{y+1}" for y in range(2023, 2030)]
+CURRENT_YEAR = "2024-2025" # Mặc định
 
 def init_firebase():
     if not firebase_admin._apps:
         try:
             key_dict = dict(st.secrets["firebase"])
-            # Fix lỗi xuống dòng trong private key
             key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
             cred = credentials.Certificate(key_dict)
             firebase_admin.initialize_app(cred)
@@ -19,83 +23,52 @@ def init_firebase():
             st.stop()
     return firestore.client()
 
-# --- 2. CSS GIAO DIỆN (MOBILE FIRST - SẠCH SẼ) ---
+# --- 2. CSS GIAO DIỆN (MOBILE FIRST) ---
 st.markdown("""
 <style>
-    /* Ẩn các thành phần mặc định của Streamlit */
-    #MainMenu {visibility: hidden; display: none;}
-    header {visibility: hidden; display: none;}
-    footer {visibility: hidden; display: none;}
-    .stAppDeployButton {display: none;}
-    [data-testid="stToolbar"] {visibility: hidden; display: none;}
+    /* Ẩn râu ria */
+    #MainMenu, header, footer, .stAppDeployButton {display: none !important;}
     [data-testid="stSidebar"] {display: none;}
+    .block-container {padding: 0.5rem 0.5rem 2rem 0.5rem !important;}
     
-    /* Căn lề sát viền cho điện thoại */
-    .block-container {
-        padding-top: 0.5rem !important;
-        padding-bottom: 2rem !important;
-        padding-left: 0.5rem !important;
-        padding-right: 0.5rem !important;
-    }
-    
-    /* Header đẹp */
+    /* Header */
     .main-header {
-        background: linear-gradient(to right, #007bff, #0056b3);
+        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
         padding: 15px; border-radius: 12px; color: white; 
-        text-align: center !important; font-weight: 700; font-size: 20px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 15px;
-        text-transform: uppercase;
+        text-align: center; font-weight: 700; font-size: 20px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2); margin-bottom: 15px;
+        text-transform: uppercase; letter-spacing: 1px;
     }
     
-    /* Khung thông tin */
+    /* Report Card */
     .report-card {
         background: white; padding: 15px; border: 1px solid #ddd;
-        border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
-        margin-bottom: 15px; color: #333;
+        border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
+        margin-bottom: 15px; color: #333; position: relative;
     }
-    .school-name { 
-        color: #cc0000; font-weight: 900; font-size: 16px; 
-        text-transform: uppercase; text-align: center; margin-bottom: 5px;
+    .year-tag {
+        position: absolute; top: 10px; right: 10px;
+        background: #e3f2fd; color: #1565c0; padding: 4px 8px;
+        border-radius: 6px; font-size: 12px; font-weight: bold;
     }
     
     /* Grid Tổng kết */
-    .summary-grid { 
-        display: grid; grid-template-columns: repeat(2, 1fr); 
-        gap: 8px; margin-top: 15px; 
-    }
-    .summary-item { 
-        background: #f1f3f5; padding: 10px; border-radius: 8px; 
-        border-left: 4px solid #007bff; text-align: center; 
-    }
+    .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 15px; }
+    .summary-item { background: #f8f9fa; padding: 10px; border-radius: 8px; border-left: 4px solid #2c5364; text-align: center; }
     .summary-val { font-size: 15px; font-weight: bold; color: #333; margin-top: 2px; display:block;}
     
-    /* Nút bấm to dễ bấm */
-    .stButton>button {
-        width: 100% !important; border-radius: 10px; height: 48px;
-        font-weight: bold; font-size: 16px; border: none;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-    }
-    
-    /* Nút Admin ở cuối trang */
-    .admin-btn-zone {
-        margin-top: 40px; padding-top: 20px; border-top: 1px dashed #ccc;
-        text-align: center; margin-bottom: 20px;
-    }
-    
-    /* Tinh chỉnh bảng điểm (Table) */
+    /* Table & Button */
     .stTable { font-size: 13px; }
     div[data-testid="stTable"] td { padding: 8px 2px !important; }
+    .stButton>button { width: 100%; border-radius: 10px; height: 48px; font-weight: bold; }
     
-    /* Vùng xóa dữ liệu */
-    .del-section {
-        border: 1px solid #ffcccc; background-color: #fff5f5; 
-        padding: 10px; border-radius: 8px; margin-bottom: 10px;
-    }
-    .del-title { color: #cc0000; font-weight: bold; font-size: 14px; text-transform: uppercase;}
+    /* Admin Zone */
+    .admin-zone { border: 1px dashed #ccc; padding: 15px; border-radius: 10px; background: #fdfdfd; margin-top: 20px;}
+    .del-section { background-color: #fff5f5; padding: 10px; border-radius: 8px; margin-bottom: 5px; border: 1px solid #ffcccc;}
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. HÀM XỬ LÝ DỮ LIỆU ---
+# --- 3. HÀM XỬ LÝ (LOGIC MỚI: KÈM NĂM HỌC) ---
 def safe_str(val):
     if pd.isna(val) or str(val).lower() in ['nan', 'none', '']: return ""
     s = str(val).strip()
@@ -105,306 +78,297 @@ def safe_str(val):
 def load_excel_robust(file):
     try: return pd.read_excel(file, sheet_name=None)
     except:
-        try:
-            file.seek(0); dfs = pd.read_html(file)
-            return {f"Sheet {i+1}": df for i, df in enumerate(dfs)}
+        try: file.seek(0); dfs = pd.read_html(file); return {f"Sheet {i+1}": df for i, df in enumerate(dfs)}
         except: return None
 
-# --- 4. HÀM QUẢN LÝ DỮ LIỆU (FIREBASE) ---
+# --- DATABASE OPERATIONS ---
 
-def delete_data_granular(db, collection_name, cls, sem=None):
-    """Xóa dữ liệu chi tiết theo Lớp và Kỳ"""
-    deleted_count = 0
+def delete_data_year(db, collection, year, cls, sem=None):
+    """Xóa dữ liệu theo Năm học, Lớp, Kỳ"""
+    cnt = 0
     try:
-        ref = db.collection(collection_name)
-        if cls == "Tất cả": query = ref
-        else: query = ref.where('cls', '==', cls)
-        
+        ref = db.collection(collection)
+        query = ref.where('year', '==', year)
+        if cls != "Tất cả": query = query.where('cls', '==', cls)
         if sem: query = query.where('sem', '==', sem)
         
-        docs = query.stream()
-        batch = db.batch(); batch_count = 0
-        
-        for doc in docs:
+        batch = db.batch(); b_cnt = 0
+        for doc in query.stream():
             batch.delete(doc.reference)
-            batch_count += 1; deleted_count += 1
-            if batch_count >= 400: 
-                batch.commit(); batch = db.batch(); batch_count = 0
-        if batch_count > 0: batch.commit()
-            
+            b_cnt += 1; cnt += 1
+            if b_cnt >= 400: batch.commit(); batch = db.batch(); b_cnt = 0
+        if b_cnt > 0: batch.commit()
     except Exception as e: st.error(f"Lỗi xóa: {e}")
-    return deleted_count
+    return cnt
 
-def upload_to_firebase(db, file, sem_default, cls, type_file):
+def upload_firebase(db, file, year, sem, cls, type_file):
     count = 0
     try:
-        batch = db.batch(); batch_count = 0
+        batch = db.batch(); b_cnt = 0
         
         if type_file == 'score':
-            xls_data = load_excel_robust(file)
-            if not xls_data: return 0
-            
-            for sheet_name, df in xls_data.items():
-                # Bỏ qua sheet rác
-                if any(x in str(sheet_name).lower() for x in ["hướng dẫn", "bìa"]): continue
+            data = load_excel_robust(file)
+            if not data: return 0
+            for sname, df in data.items():
+                if any(x in str(sname).lower() for x in ["hướng dẫn", "bìa"]): continue
                 
                 # Tìm header
                 h_idx = -1
                 for i, row in df.iterrows():
-                    if row.astype(str).str.contains("Mã học sinh", case=False).any():
-                        h_idx = i; break
+                    if row.astype(str).str.contains("Mã học sinh", case=False).any(): h_idx = i; break
                 
                 if h_idx != -1:
-                    df.columns = df.iloc[h_idx]
-                    df = df.iloc[h_idx+1:]
+                    df.columns = df.iloc[h_idx]; df = df.iloc[h_idx+1:]
                     cols = df.columns.tolist()
-                    idx_ma = next((i for i, c in enumerate(cols) if "Mã học sinh" in str(c)), -1)
+                    idx_ma = next((i for i,c in enumerate(cols) if "Mã học sinh" in str(c)), -1)
                     
                     if idx_ma != -1:
                         for _, row in df.iterrows():
-                            ma_hs = safe_str(row.iloc[idx_ma])
-                            if len(ma_hs) > 3:
-                                # Update HS (Dùng merge an toàn)
-                                try: 
-                                    ten_hs = safe_str(row.iloc[idx_ma-2])
-                                    ref_st = db.collection('students').document(ma_hs)
-                                    doc_snap = ref_st.get()
-                                    st_data = {'id': ma_hs, 'name': ten_hs, 'cls': cls}
-                                    if not doc_snap.exists: st_data['active'] = 0
+                            ma = safe_str(row.iloc[idx_ma])
+                            if len(ma) > 3:
+                                # 1. Lưu Enrollment (Học sinh theo năm)
+                                # ID doc: MaHS_NamHoc -> Để quản lý active theo từng năm
+                                try:
+                                    ten = safe_str(row.iloc[idx_ma-2])
+                                    doc_st_id = f"{ma}_{year}"
+                                    ref_st = db.collection('students').document(doc_st_id)
+                                    snap = ref_st.get()
+                                    
+                                    st_data = {'id': ma, 'name': ten, 'cls': cls, 'year': year}
+                                    if not snap.exists: st_data['active'] = 0 # Mặc định chưa kích hoạt
+                                    
                                     batch.set(ref_st, st_data, merge=True)
                                 except: pass
 
-                                # Update Điểm
-                                def g(off): 
-                                    try: return safe_str(row.iloc[idx_ma+off])
+                                # 2. Lưu Điểm
+                                def g(o): 
+                                    try: return safe_str(row.iloc[idx_ma+o])
                                     except: return ""
                                 
-                                tx = "  ".join([g(k) for k in range(1,10) if g(k)])
-                                safe_sub = str(sheet_name).strip().replace("/", "-")
-                                doc_id = f"{ma_hs}_{sem_default}_{safe_sub}"
+                                sub = str(sname).strip().replace("/", "-")
+                                # ID: MaHS_Nam_Ky_Mon
+                                doc_id = f"{ma}_{year}_{sem}_{sub}"
                                 
-                                ref_sc = db.collection('scores').document(doc_id)
-                                batch.set(ref_sc, {
-                                    'id': ma_hs, 'sub': safe_sub, 'sem': sem_default, 'cls': cls,
-                                    'tx': tx, 'gk': g(16), 'ck': g(26), 'tb': g(27), 
-                                    'cn': (g(28) if sem_default=='HK2' else "")
+                                batch.set(db.collection('scores').document(doc_id), {
+                                    'id': ma, 'year': year, 'sem': sem, 'cls': cls, 'sub': sub,
+                                    'tx': "  ".join([g(k) for k in range(1,10) if g(k)]),
+                                    'gk': g(16), 'ck': g(26), 'tb': g(27), 
+                                    'cn': (g(28) if sem=='HK2' else "")
                                 })
-                                count += 1; batch_count += 1
-                                if batch_count >= 300: batch.commit(); batch = db.batch(); batch_count = 0
+                                count += 1; b_cnt += 1
+                                if b_cnt >= 300: batch.commit(); batch = db.batch(); b_cnt = 0
             batch.commit()
 
         elif type_file == 'summary':
             try: df = pd.read_excel(file)
             except: df = pd.read_csv(file)
             if 'Mã học sinh' not in df.columns:
-                for i, row in df.iterrows():
-                    if row.astype(str).str.contains("Mã học sinh").any():
-                        df.columns = df.iloc[i]; df = df.iloc[i+1:]; break
+                for i, r in df.iterrows():
+                    if r.astype(str).str.contains("Mã học sinh").any(): df.columns = df.iloc[i]; df = df.iloc[i+1:]; break
             df.columns = df.columns.str.strip()
-            has_loai_tk = 'Loại TK' in df.columns
+            has_loai = 'Loại TK' in df.columns
             
             for _, row in df.iterrows():
                 ma = safe_str(row.get('Mã học sinh'))
                 if len(ma) > 3:
-                    current_sem = sem_default
-                    if has_loai_tk:
-                        val_loai = safe_str(row.get('Loại TK')).upper()
-                        if 'HK1' in val_loai or '1' in val_loai: current_sem = 'HK1'
-                        elif 'HK2' in val_loai or '2' in val_loai: current_sem = 'HK2'
-                        elif 'CN' in val_loai or 'CẢ NĂM' in val_loai: current_sem = 'CN'
+                    cur_sem = sem
+                    if has_loai:
+                        v = safe_str(row.get('Loại TK')).upper()
+                        if '1' in v: cur_sem = 'HK1'
+                        elif '2' in v: cur_sem = 'HK2'
+                        elif 'CN' in v or 'NAM' in v: cur_sem = 'CN'
                     
-                    doc_id = f"{ma}_{current_sem}_summary"
-                    ref_sum = db.collection('summary').document(doc_id)
-                    batch.set(ref_sum, {
-                        'id': ma, 'sem': current_sem, 'cls': cls,
+                    doc_id = f"{ma}_{year}_{cur_sem}_sum"
+                    batch.set(db.collection('summary').document(doc_id), {
+                        'id': ma, 'year': year, 'sem': cur_sem, 'cls': cls,
                         'ht': safe_str(row.get('Học tập')), 'rl': safe_str(row.get('Rèn luyện')),
                         'v': safe_str(row.get('Vắng')), 'dh': safe_str(row.get('Danh hiệu')),
                         'kq': safe_str(row.get('Kết quả'))
                     })
-                    count += 1; batch_count += 1
-                    if batch_count >= 300: batch.commit(); batch = db.batch(); batch_count = 0
+                    count += 1; b_cnt += 1
+                    if b_cnt >= 300: batch.commit(); batch = db.batch(); b_cnt = 0
             batch.commit()
-    except Exception as e: st.error(f"Lỗi: {e}"); print(e)
+    except Exception as e: st.error(f"Lỗi: {e}")
     return count
 
-# --- 5. GIAO DIỆN ADMIN ---
+# --- 4. ADMIN ---
 def view_admin(db):
     st.markdown('<div class="main-header">🛠️ QUẢN TRỊ VIÊN</div>', unsafe_allow_html=True)
     if st.button("Đăng xuất"): st.session_state.page = 'login'; st.rerun()
     
     if st.text_input("Mật khẩu:", type="password") == "admin123":
-        t1, t2, t3 = st.tabs(["📤 UPLOAD", "✅ KÍCH HOẠT", "🗑️ XÓA DỮ LIỆU"])
+        # CHỌN NĂM HỌC ĐỂ THAO TÁC
+        st.markdown("---")
+        col_y1, col_y2 = st.columns([1, 3])
+        year_sel = col_y1.selectbox("📅 Năm học làm việc:", YEAR_LIST, index=YEAR_LIST.index(CURRENT_YEAR))
+        col_y2.info(f"Đang thao tác dữ liệu cho năm học: **{year_sel}**")
         
-        # TAB 1: UPLOAD
+        t1, t2, t3 = st.tabs(["UPLOADER", "KÍCH HOẠT", "XÓA DỮ LIỆU"])
+        
         with t1:
-            cls = st.selectbox("Chọn Lớp:", [f"Lớp {i}" for i in range(6, 13)])
+            cls = st.selectbox("Lớp:", [f"Lớp {i}" for i in range(6, 13)])
             c1, c2 = st.columns(2)
             f1 = c1.file_uploader(f"Điểm HK1 {cls}", key="f1")
             f2 = c1.file_uploader(f"Điểm HK2 {cls}", key="f2")
-            tk = st.file_uploader(f"Tổng Kết {cls} (All)", key="tk")
+            tk = st.file_uploader(f"Tổng Kết {cls}", key="tk")
             
-            if st.button("LƯU LÊN CLOUD", type="primary", use_container_width=True):
-                with st.spinner("Đang đồng bộ..."):
-                    cnt = 0
-                    if f1: cnt += upload_to_firebase(db, f1, "HK1", cls, 'score')
-                    if f2: cnt += upload_to_firebase(db, f2, "HK2", cls, 'score')
-                    if tk: cnt += upload_to_firebase(db, tk, "HK1", cls, 'summary') 
-                    st.success(f"Xong! {cnt} bản ghi.")
+            if st.button("LƯU DỮ LIỆU", type="primary"):
+                with st.spinner(f"Đang lưu vào năm {year_sel}..."):
+                    c = 0
+                    if f1: c += upload_firebase(db, f1, year_sel, "HK1", cls, 'score')
+                    if f2: c += upload_firebase(db, f2, year_sel, "HK2", cls, 'score')
+                    if tk: c += upload_firebase(db, tk, year_sel, "HK1", cls, 'summary')
+                    st.success(f"Đã lưu {c} bản ghi vào năm {year_sel}.")
 
-        # TAB 2: KÍCH HOẠT
         with t2:
             flt = st.selectbox("Lọc Lớp:", ["Tất cả"] + [f"Lớp {i}" for i in range(6, 13)])
-            ref = db.collection('students')
-            docs = ref.where('cls', '==', flt).stream() if flt != "Tất cả" else ref.stream()
-            data = [{"id": d.id, **d.to_dict()} for d in docs]
+            
+            # Query theo năm học và lớp
+            ref = db.collection('students').where('year', '==', year_sel)
+            if flt != "Tất cả": ref = ref.where('cls', '==', flt)
+            
+            docs = list(ref.stream())
+            data = [{"id_doc": d.id, **d.to_dict()} for d in docs]
+            
             if data:
                 df = pd.DataFrame(data)
+                # Đảm bảo active
                 if 'active' not in df.columns: df['active'] = 0
-                df['active'] = df['active'].apply(lambda x: True if x==1 else False)
+                df['active'] = df['active'].apply(lambda x: bool(x))
+                
                 edited = st.data_editor(df[['active', 'id', 'name', 'cls']], 
-                                      column_config={"active": st.column_config.CheckboxColumn("Active", default=False)},
+                                      column_config={"active": st.column_config.CheckboxColumn("Kích hoạt", default=False)},
                                       disabled=['id', 'name', 'cls'], hide_index=True, use_container_width=True)
-                if st.button("LƯU TRẠNG THÁI", use_container_width=True):
+                
+                if st.button("LƯU TRẠNG THÁI"):
                     batch = db.batch(); b_cnt = 0
-                    for _, r in edited.iterrows():
-                        batch.update(db.collection('students').document(r['id']), {'active': 1 if r['active'] else 0})
+                    for i, r in edited.iterrows():
+                        # Tìm ID Document gốc để update (MaHS_NamHoc)
+                        doc_key = f"{r['id']}_{year_sel}"
+                        batch.update(db.collection('students').document(doc_key), {'active': 1 if r['active'] else 0})
                         b_cnt += 1
                         if b_cnt >= 300: batch.commit(); batch = db.batch(); b_cnt = 0
                     batch.commit()
-                    st.success("Đã lưu!")
-            else: st.warning("Chưa có dữ liệu.")
+                    st.success(f"Đã cập nhật trạng thái năm {year_sel}!")
+            else: st.warning(f"Chưa có dữ liệu học sinh năm {year_sel}.")
 
-        # TAB 3: XÓA DỮ LIỆU (GRANULAR)
         with t3:
-            st.warning("⚠️ Cẩn thận: Dữ liệu xóa không thể khôi phục!")
-            cls_del = st.selectbox("Chọn Lớp cần xóa:", ["Tất cả"] + [f"Lớp {i}" for i in range(6, 13)], key="del_cls")
+            st.warning(f"Đang ở chế độ xóa dữ liệu của năm: {year_sel}")
+            del_cls = st.selectbox("Lớp cần xóa:", ["Tất cả"] + [f"Lớp {i}" for i in range(6, 13)], key="del")
             
-            c_d1, c_d2 = st.columns(2)
-            with c_d1:
-                st.markdown('<div class="del-section"><div class="del-title">1. ĐIỂM CHI TIẾT</div>', unsafe_allow_html=True)
-                d_sc_hk1 = st.checkbox(f"Xóa Điểm HK1")
-                d_sc_hk2 = st.checkbox(f"Xóa Điểm HK2")
-                st.markdown('</div>', unsafe_allow_html=True)
-            with c_d2:
-                st.markdown('<div class="del-section"><div class="del-title">2. TỔNG KẾT</div>', unsafe_allow_html=True)
-                d_sum_hk1 = st.checkbox(f"Xóa TK HK1")
-                d_sum_hk2 = st.checkbox(f"Xóa TK HK2")
-                d_sum_cn = st.checkbox(f"Xóa TK Cả Năm")
-                st.markdown('</div>', unsafe_allow_html=True)
+            c1, c2 = st.columns(2)
+            with c1:
+                d_hk1 = st.checkbox("Xóa Điểm HK1")
+                d_hk2 = st.checkbox("Xóa Điểm HK2")
+            with c2:
+                d_thk1 = st.checkbox("Xóa TK HK1")
+                d_thk2 = st.checkbox("Xóa TK HK2/CN")
+                
+            d_all = st.checkbox("Xóa Tài khoản & Danh sách lớp (Reset năm học)")
             
-            st.markdown('<div class="del-section"><div class="del-title">3. TÀI KHOẢN</div>', unsafe_allow_html=True)
-            d_student = st.checkbox(f"Xóa Danh Sách Học Sinh (Mất quyền đăng nhập)")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            if st.button("🚨 THỰC HIỆN XÓA", type="primary", use_container_width=True):
-                if not any([d_sc_hk1, d_sc_hk2, d_sum_hk1, d_sum_hk2, d_sum_cn, d_student]):
-                    st.error("Chưa chọn mục để xóa!")
-                else:
-                    with st.spinner("Đang xóa..."):
-                        if d_sc_hk1: delete_data_granular(db, 'scores', cls_del, 'HK1')
-                        if d_sc_hk2: delete_data_granular(db, 'scores', cls_del, 'HK2')
-                        if d_sum_hk1: delete_data_granular(db, 'summary', cls_del, 'HK1')
-                        if d_sum_hk2: delete_data_granular(db, 'summary', cls_del, 'HK2')
-                        if d_sum_cn: delete_data_granular(db, 'summary', cls_del, 'CN')
-                        if d_student: delete_data_granular(db, 'students', cls_del, None)
-                        st.success("Đã xóa xong!")
+            if st.button("🚨 THỰC HIỆN XÓA", type="primary"):
+                with st.spinner("Deleting..."):
+                    if d_hk1: delete_data_year(db, 'scores', year_sel, del_cls, 'HK1')
+                    if d_hk2: delete_data_year(db, 'scores', year_sel, del_cls, 'HK2')
+                    if d_thk1: delete_data_year(db, 'summary', year_sel, del_cls, 'HK1')
+                    if d_thk2: 
+                        delete_data_year(db, 'summary', year_sel, del_cls, 'HK2')
+                        delete_data_year(db, 'summary', year_sel, del_cls, 'CN')
+                    if d_all: delete_data_year(db, 'students', year_sel, del_cls)
+                    st.success("Đã xóa xong!")
 
-# --- 6. GIAO DIỆN HỌC SINH ---
+# --- 5. HỌC SINH ---
 def view_student(db):
-    st.markdown('<div class="main-header">🔥 TRA CỨU ĐIỂM TUY ĐỨC SCHOOL</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">HỒ SƠ HỌC TẬP SỐ</div>', unsafe_allow_html=True)
 
     if 'user' not in st.session_state:
-        mid = st.text_input("Nhập Mã Học Sinh:", placeholder="Ví dụ: 2411...").strip()
-        if st.button("TRA CỨU NGAY", type="primary", use_container_width=True):
-            doc = db.collection('students').document(mid).get()
-            if not doc.exists: st.error("Sai mã học sinh!Liên hệ admin Zalo: 0383477162 để cấp tài khoản, Cân nhắc hệ thống có thu phí 15k/năm")
-            elif doc.to_dict().get('active') != 1: st.warning("Tài khoản chưa được kích hoạt. Liên hệ admin Zalo: 0383477162 để kích hoạt, Cân nhắc hệ thống có thu phí 15k/năm")
-            else: st.session_state.user = doc.to_dict(); st.rerun()
+        # Chọn năm học trước khi đăng nhập
+        year_login = st.selectbox("Năm học:", YEAR_LIST, index=YEAR_LIST.index(CURRENT_YEAR))
+        mid = st.text_input("Mã Học Sinh:", placeholder="VD: 2411...").strip()
+        
+        if st.button("TRA CỨU", type="primary", use_container_width=True):
+            # Tìm document theo ID: MaHS_NamHoc
+            doc_key = f"{mid}_{year_login}"
+            doc = db.collection('students').document(doc_key).get()
+            
+            if not doc.exists:
+                st.error(f"Không tìm thấy dữ liệu năm {year_login}!")
+            elif doc.to_dict().get('active') != 1:
+                st.warning(f"Tài khoản năm {year_login} chưa được kích hoạt/đóng phí.")
+            else:
+                st.session_state.user = doc.to_dict()
+                st.session_state.year_view = year_login # Lưu năm đang xem
+                st.rerun()
     else:
         u = st.session_state.user
+        year_view = st.session_state.year_view
+        
         st.markdown(f"""
         <div class="report-card">
-            <div class="school-name">TRƯỜNG PT DTNT THCS & THPT TUY ĐỨC</div>
-             <div class="school-name">NĂM HỌC 2025 - 2026</div>
-            <div style="text-align:center; margin-top:10px;">
-                <div style="font-size:18px; font-weight:bold; color:#0056b3;">{u.get('name')}</div>
-                <div>Mã: {u.get('id')} | Lớp: {u.get('cls')}</div>
+            <span class="year-tag">{year_view}</span>
+            <div style="text-align:center; font-weight:bold; color:#2c5364; font-size:16px;">
+                {u.get('name')}
+            </div>
+            <div style="text-align:center; font-size:14px;">
+                Mã: {u.get('id')} | Lớp: {u.get('cls')}
             </div>
         </div>
         """, unsafe_allow_html=True)
         
-        ky = st.radio("Chọn kỳ:", ["HK1", "HK2 & Cả năm"], horizontal=True)
-        sem = "HK1" if ky == "HK1" else "HK2"
+        ky = st.radio("", ["Học kỳ 1", "Học kỳ 2 & Cả năm"], horizontal=True)
+        sem = "HK1" if "1" in ky else "HK2"
         
-        # Lấy điểm
-        docs = db.collection('scores').where('id', '==', u['id']).where('sem', '==', sem).stream()
+        # Query điểm theo Năm + Mã + Kỳ
+        docs = db.collection('scores').where('id', '==', u['id']).where('year', '==', year_view).where('sem', '==', sem).stream()
         data = [d.to_dict() for d in docs]
         
         if data:
             df = pd.DataFrame(data)
-            # Sắp xếp môn
-            def sort_priority(s):
-                s = str(s).lower()
+            def prio(s):
+                s=s.lower()
                 if 'toán' in s: return 0
                 if 'văn' in s or 'ngữ văn' in s: return 1
                 if 'anh' in s or 'ngoại ngữ' in s: return 2
                 return 3
-            df['priority'] = df['sub'].apply(sort_priority)
-            df = df.sort_values(by=['priority', 'sub'])
+            df['p'] = df['sub'].apply(prio)
+            df = df.sort_values(by=['p', 'sub'])
+            df['STT'] = range(1, len(df)+1)
             
-            # Đánh số thứ tự (STT) chuẩn từ 1
-            df['STT'] = range(1, len(df) + 1)
-            
-            renames = {'sub': 'Môn', 'tx': 'TX', 'gk': 'GK', 'ck': 'CK', 'tb': 'TB', 'cn': 'CN'}
+            rn = {'sub': 'Môn', 'tx': 'TX', 'gk': 'GK', 'ck': 'CK', 'tb': 'TB', 'cn': 'CN'}
             cols = ['STT', 'Môn', 'TX', 'GK', 'CK', 'TB']
             if sem == 'HK2': cols.append('CN')
             
-            # Hiển thị bảng Table (không cuộn)
-            st.table(df.rename(columns=renames)[cols].set_index('STT'))
+            st.table(df.rename(columns=rn)[cols].set_index('STT'))
         else: st.info("Chưa có điểm.")
         
-        # Lấy TK
-        tk = db.collection('summary').document(f"{u['id']}_{sem}_summary").get()
+        # TK
+        doc_tk = f"{u['id']}_{year_view}_{sem}_sum"
+        tk = db.collection('summary').document(doc_tk).get()
         tk_d = tk.to_dict() if tk.exists else {}
-        tk_cn = db.collection('summary').document(f"{u['id']}_CN_summary").get()
-        tk_cn_d = tk_cn.to_dict() if tk_cn.exists else {}
         
         def card(l, v): return f'<div class="summary-item"><small>{l}</small><div class="summary-val">{v if v else "-"}</div></div>'
         
-        st.markdown(f"**TỔNG KẾT {ky.upper()}**")
+        st.markdown(f"**TỔNG KẾT {sem}**")
         if tk_d:
-            st.markdown(f"""
-            <div class="summary-grid">
-                {card("Học tập", tk_d.get('ht'))}
-                {card("Rèn luyện", tk_d.get('rl'))}
-                {card("Vắng", tk_d.get('v'))}
-                {card("Danh hiệu", tk_d.get('dh'))}
-            </div>
-            """, unsafe_allow_html=True)
-        else: st.caption("Chưa có dữ liệu.")
+            st.markdown(f"""<div class="summary-grid">{card('Học lực', tk_d.get('ht'))}{card('Hạnh kiểm', tk_d.get('rl'))}{card('Vắng', tk_d.get('v'))}{card('Danh hiệu', tk_d.get('dh'))}</div>""", unsafe_allow_html=True)
         
-        if sem == 'HK2' and tk_cn_d:
-            st.markdown("---")
-            st.markdown("**KẾT QUẢ CẢ NĂM**")
-            st.markdown(f"""
-            <div class="summary-grid">
-                {card("Học tập CN", tk_cn_d.get('ht'))}
-                {card("Rèn luyện CN", tk_cn_d.get('rl'))}
-                {card("Danh hiệu CN", tk_cn_d.get('dh'))}
-                <div class="summary-item" style="border-left: 4px solid #dc3545; background: #fff5f5;">
-                    <small style="color:#dc3545">KẾT QUẢ</small>
-                    <div class="summary-val" style="color:#dc3545">{tk_cn_d.get("kq")}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+        if sem == 'HK2':
+            doc_cn = f"{u['id']}_{year_view}_CN_sum"
+            cn = db.collection('summary').document(doc_cn).get()
+            cn_d = cn.to_dict() if cn.exists else {}
+            if cn_d:
+                st.markdown("---")
+                st.markdown("**CẢ NĂM**")
+                st.markdown(f"""<div class="summary-grid">{card('Học lực', cn_d.get('ht'))}{card('Hạnh kiểm', cn_d.get('rl'))}{card('Danh hiệu', cn_d.get('dh'))}<div class="summary-item" style="border-color:red; background:#fff5f5"><small style="color:red">KẾT QUẢ</small><div class="summary-val" style="color:red">{cn_d.get('kq')}</div></div></div>""", unsafe_allow_html=True)
 
-        if st.button("⬅️ TRA CỨU KHÁC", use_container_width=True): 
-            del st.session_state.user; st.rerun()
+        # Đổi năm xem hoặc thoát
+        c1, c2 = st.columns(2)
+        if c1.button("🔙 Đổi Năm Học"): del st.session_state.user; st.rerun()
+        if c2.button("Thoát"): del st.session_state.user; st.rerun()
 
-    # Nút Admin ở cuối trang
-    st.markdown('<div class="admin-btn-zone">', unsafe_allow_html=True)
-    if st.button("⚙️ Admin", type="secondary"): 
-        st.session_state.page = 'admin'; st.rerun()
+    # Admin Footer
+    st.markdown('<div class="admin-zone" style="text-align:center; border:none; margin-top:50px;">', unsafe_allow_html=True)
+    if st.button("⚙️", key="adm_btn"): st.session_state.page = 'admin'; st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 # --- MAIN ---
@@ -414,9 +378,4 @@ if __name__ == "__main__":
         db = init_firebase()
         if st.session_state.page == 'admin': view_admin(db)
         else: view_student(db)
-    except Exception as e:
-        st.error("Lỗi hệ thống."); print(e)
-
-
-
-
+    except Exception as e: st.error("Lỗi hệ thống."); print(e)
