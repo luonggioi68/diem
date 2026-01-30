@@ -305,8 +305,8 @@ def view_student(db):
         if st.button("TRA CỨU", type="primary", use_container_width=True):
             doc_key = f"{mid}_{year_login}"
             doc = db.collection('students').document(doc_key).get()
-            if not doc.exists: st.error(f"Không tìm thấy dữ liệu năm {year_login}!Liên hệ admin zalo: 0383477162 để đăng kí tài khoản, Cân nhắc phí thu 15k/năm học")
-            elif doc.to_dict().get('active') != 1: st.warning(f"Chưa kích hoạt năm {year_login}.Liên hệ admin zalo: 0383477162 để kích hoạt tài khoản, Cân nhắc phí thu 15k/năm học")
+            if not doc.exists: st.error(f"Không tìm thấy dữ liệu năm {year_login}!Liên hệ admin zalo: 0383477162 để đăng kí tài khoản, Cân nhắc phí kích hoạt tài khoản 15k/năm học")
+            elif doc.to_dict().get('active') != 1: st.warning(f"Chưa kích hoạt năm {year_login}.Liên hệ admin zalo: 0383477162 để kích hoạt tài khoản, Cân nhắc phí kích hoạt tài khoản 15k/năm học")
             else:
                 st.session_state.user = doc.to_dict()
                 st.session_state.year_view = year_login
@@ -400,6 +400,7 @@ if __name__ == "__main__":
         else: view_student(db)
     except Exception as e: st.error("Lỗi hệ thống."); print(e)
 st.markdown('<div class="copyright">Copyright©2026 - Lương Văn Giỏi-0383477162</div>', unsafe_allow_html=True)
+
 
 
 
