@@ -412,7 +412,7 @@ def view_student(db):
         /* Tiêu đề Neon Rực lửa */
         .neon-title {
             text-align: center;
-            font-size: 24px;
+            font-size: 35px;
             font-weight: 900;
             color: #fff;
             text-transform: uppercase;
@@ -516,7 +516,7 @@ def view_student(db):
     </style>
     """, unsafe_allow_html=True)
     
-    st.markdown('<div class="neon-title">🔥 TRA CỨU ĐIỂM SỐ 🔥<br><span style="font-size: 16px; color: #ffeb3b; text-shadow: none;">Trường PT DTNT THCS&THPT Tuy Đức</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="neon-title">🔥 ARENA XEM ĐIỂM 🔥<br><span style="font-size: 16px; color: #ffeb3b; text-shadow: none;">Trường PT DTNT THCS&THPT Tuy Đức</span></div>', unsafe_allow_html=True)
     
     default_year = get_current_year_config(db)
     current_fee = get_activation_fee(db) # Lấy dữ liệu phí từ DB
@@ -557,7 +557,7 @@ def view_student(db):
             st.markdown("""
             <div style="background-color: rgba(20,0,0,0.8); border: 2px solid #ff4500; border-radius: 12px; padding: 20px; text-align: center; margin-top: 15px; box-shadow: 0 0 20px rgba(255,0,0,0.4);">
                 <h3 style="color: #ffeb3b; text-shadow: 0 0 10px #ff0000; margin-bottom: 10px; text-transform: uppercase;">🚀 Hướng dẫn kích hoạt tài khoản</h3>
-                <p style="color: #fff; font-size: 15px; margin-bottom: 20px;">Sử dụng App Ngân hàng quét mã QR bên dưới.<br><i style="color: #4CAF50;">(Hệ thống đã tự động điền Mã Học Sinh vào nội dung chuyển khoản)</i></p>
+                <p style="color: #fff; font-size: 15px; margin-bottom: 20px;">Sử dụng App Ngân hàng quét mã QR bên dưới.<br><i style="color: #4CAF50;">(Hệ thống đã tự động điền Mã Học Sinh vào nội dung chuyển khoản)</i></p><br><i style="color: #4CAF50;">QUAN TRỌNG: NỘI DUNG CHUYỂN KHOẢN LÀ MÃ HỌC SINH</i></p>
             """, unsafe_allow_html=True)
             
             # API VietQR tự động nhúng Số tiền lấy từ Cấu Hình
