@@ -4,6 +4,8 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import io
 from openpyxl import load_workbook
+import os
+import json
 
 # --- 1. CẤU HÌNH & DANH SÁCH NĂM ---
 st.set_page_config(page_title="Hồ Sơ Học Tập Số", page_icon="🎓", layout="wide")
@@ -13,8 +15,16 @@ YEAR_LIST = [f"{y}-{y+1}" for y in range(2025, 2030)]
 def init_firebase():
     if not firebase_admin._apps:
         try:
-            key_dict = dict(st.secrets["firebase"])
-            key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
+            # ƯU TIÊN 1: Chạy trên Server Render (Lấy từ biến môi trường)
+            if "FIREBASE_JSON" in os.environ:
+                key_dict = json.loads(os.environ["FIREBASE_JSON"])
+                if "private_key" in key_dict:
+                    key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
+            # ƯU TIÊN 2: Chạy trên máy tính cá nhân (Lấy từ file secrets)
+            else:
+                key_dict = dict(st.secrets["firebase"])
+                key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
+                
             cred = credentials.Certificate(key_dict)
             firebase_admin.initialize_app(cred)
         except Exception as e:
@@ -84,7 +94,6 @@ def load_excel_robust(file):
         try: file.seek(0); dfs = pd.read_html(file); return {f"Sheet {i+1}": df for i, df in enumerate(dfs)}
         except: return None
 
-# Quản lý Năm học
 def get_current_year_config(db):
     try:
         doc = db.collection('system_config').document('settings').get()
@@ -95,7 +104,6 @@ def get_current_year_config(db):
 def set_current_year_config(db, year):
     db.collection('system_config').document('settings').set({'default_year': year}, merge=True)
 
-# Quản lý Phí Kích Hoạt
 def get_activation_fee(db):
     try:
         doc = db.collection('system_config').document('settings').get()
@@ -198,19 +206,18 @@ def upload_firebase(db, file, year, sem, cls, type_file):
     except Exception as e: st.error(f"Lỗi: {e}")
     return count
 
-# --- 4. ADMIN UI (ĐÃ TÁCH RIÊNG HK2 VÀ CẢ NĂM) ---
+# --- 4. ADMIN UI ---
 def view_admin(db):
     st.markdown('<div class="main-header">🛠️ QUẢN TRỊ VIÊN</div>', unsafe_allow_html=True)
     if st.button("Đăng xuất"): st.session_state.page = 'login'; st.rerun()
     
-    if st.text_input("Mật khẩu:", type="password") == "Admin@6868":
+    if st.text_input("Mật khẩu:", type="password") == "admin123":
         current_db_year = get_current_year_config(db)
         current_fee = get_activation_fee(db)
         fee_formatted = f"{current_fee:,}".replace(',', '.')
         
         st.markdown(f"""<div class="config-box"><b>Năm học đang kích hoạt: {current_db_year} | Phí kích hoạt: {fee_formatted} VNĐ</b></div>""", unsafe_allow_html=True)
         
-        # CHIA CỘT ĐỂ CẤU HÌNH NĂM VÀ TIỀN
         col_y, col_f = st.columns(2)
         with col_y:
             year_sel = st.selectbox("📅 Năm làm việc:", YEAR_LIST, index=YEAR_LIST.index(current_db_year) if current_db_year in YEAR_LIST else 0)
@@ -387,140 +394,39 @@ def view_admin(db):
                         st.error(f"Có lỗi xảy ra trong quá trình xử lý: {e}")
         st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 5. HỌC SINH UI (GIAO DIỆN NEON GAME) ---
+# --- 5. HỌC SINH UI ---
 def view_student(db):
     st.markdown("""
     <style>
-        /* Thu nhỏ khung hình 2 bên */
-        .block-container {
-            max-width: 650px !important; 
-            padding-top: 2rem !important;
-        }
-        
-        /* Nền Gradient Đỏ Đen Huyền Bí */
-        .stApp {
-            background: linear-gradient(135deg, #0a0000 0%, #2a0000 50%, #000000 100%) !important;
-            background-attachment: fixed !important;
-        }
-
-        /* Ép tất cả chữ văn bản (như chữ TỔNG KẾT) thành màu trắng sáng */
-        .stMarkdown p, .stMarkdown strong {
-            color: #ffffff !important;
-            text-shadow: 0 0 5px rgba(255, 69, 0, 0.5) !important;
-        }
-
-        /* Tiêu đề Neon Rực lửa */
-        .neon-title {
-            text-align: center;
-            font-size: 35px;
-            font-weight: 900;
-            color: #fff;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            text-shadow: 0 0 10px #ff0000, 0 0 20px #ff4500, 0 0 40px #ff0000;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid rgba(255, 69, 0, 0.4);
-            line-height: 1.5;
-        }
-
-        /* Nhãn của Text Input, Selectbox */
-        .stTextInput label, .stSelectbox label {
-            color: #ff4500 !important;
-            font-weight: bold !important;
-            font-size: 14px !important;
-            text-transform: uppercase !important;
-            text-shadow: 0 0 5px rgba(255, 0, 0, 0.5) !important;
-        }
-
-        /* CHỮ TẠI NÚT CHỌN HỌC KỲ (SÁNG RỰC LÊN) */
-        .stRadio div[role="radiogroup"] label p {
-            color: #ffeb3b !important; /* Màu vàng chanh Neon */
-            font-weight: 900 !important;
-            font-size: 16px !important;
-            text-shadow: 0 0 8px #ff0000 !important;
-        }
-
-        /* Ô nhập liệu (Input & Select) */
-        .stTextInput input, div[data-baseweb="select"] > div {
-            background-color: rgba(0, 0, 0, 0.7) !important;
-            color: #ffeb3b !important;
-            border: 2px solid #ff4500 !important;
-            border-radius: 8px !important;
-            box-shadow: 0 0 15px rgba(255, 69, 0, 0.4) inset, 0 0 10px rgba(255, 0, 0, 0.4) !important;
-            font-size: 16px !important;
-            font-weight: bold !important;
-        }
+        .block-container { max-width: 650px !important; padding-top: 2rem !important; }
+        .stApp { background: linear-gradient(135deg, #0a0000 0%, #2a0000 50%, #000000 100%) !important; background-attachment: fixed !important; }
+        .stMarkdown p, .stMarkdown strong { color: #ffffff !important; text-shadow: 0 0 5px rgba(255, 69, 0, 0.5) !important; }
+        .neon-title { text-align: center; font-size: 24px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px #ff0000, 0 0 20px #ff4500, 0 0 40px #ff0000; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid rgba(255, 69, 0, 0.4); line-height: 1.5; }
+        .stTextInput label, .stSelectbox label { color: #ff4500 !important; font-weight: bold !important; font-size: 14px !important; text-transform: uppercase !important; text-shadow: 0 0 5px rgba(255, 0, 0, 0.5) !important; }
+        .stRadio div[role="radiogroup"] label p { color: #ffeb3b !important; font-weight: 900 !important; font-size: 16px !important; text-shadow: 0 0 8px #ff0000 !important; }
+        .stTextInput input, div[data-baseweb="select"] > div { background-color: rgba(0, 0, 0, 0.7) !important; color: #ffeb3b !important; border: 2px solid #ff4500 !important; border-radius: 8px !important; box-shadow: 0 0 15px rgba(255, 69, 0, 0.4) inset, 0 0 10px rgba(255, 0, 0, 0.4) !important; font-size: 16px !important; font-weight: bold !important; }
         .stTextInput input { text-align: center !important; }
         div[data-baseweb="select"] * { color: #ffeb3b !important; font-weight: bold; }
-
-        /* Nút Xem Điểm */
-        .stButton > button {
-            background: linear-gradient(45deg, #990000, #ff4500) !important;
-            color: white !important;
-            border: 2px solid #ff0000 !important;
-            border-radius: 8px !important;
-            font-weight: 900 !important;
-            font-size: 18px !important;
-            text-transform: uppercase !important;
-            letter-spacing: 2px !important;
-            box-shadow: 0 0 20px rgba(255, 0, 0, 0.6) !important;
-            transition: all 0.3s ease !important;
-            height: 50px !important;
-        }
-        .stButton > button:hover {
-            transform: scale(1.05) !important;
-            box-shadow: 0 0 30px rgba(255, 69, 0, 1), 0 0 10px #fff inset !important;
-            background: linear-gradient(45deg, #ff0000, #ff7300) !important;
-            border-color: #ffeb3b !important;
-            color: #fff !important;
-        }
-        
-        /* BẢNG ĐIỂM SÁNG LÊN */
-        .stTable { 
-            background-color: rgba(20,0,0,0.8) !important; 
-            border-radius: 10px; 
-            overflow: hidden; 
-            border: 1px solid #ff4500 !important; 
-            box-shadow: 0 0 15px rgba(255,0,0,0.4) !important;
-        }
-        .stTable th { 
-            background-color: #550000 !important; 
-            color: #ffeb3b !important; /* Chữ tiêu đề cột màu Vàng */
-            border-bottom: 2px solid #ff4500 !important; 
-            text-align: center !important; 
-            text-shadow: 0 0 5px #ff0000 !important;
-        }
-        .stTable td { 
-            border-bottom: 1px solid rgba(255, 69, 0, 0.3) !important; 
-            text-align: center !important; 
-            color: #ffffff !important; /* CHỮ TRONG BẢNG MÀU TRẮNG SÁNG */
-            font-weight: bold !important;
-            text-shadow: 0 0 5px #ff4500 !important; /* Hiệu ứng viền đỏ mờ quanh chữ */
-        }
-        
-        /* Cảnh báo (Alerts) */
+        .stButton > button { background: linear-gradient(45deg, #990000, #ff4500) !important; color: white !important; border: 2px solid #ff0000 !important; border-radius: 8px !important; font-weight: 900 !important; font-size: 18px !important; text-transform: uppercase !important; letter-spacing: 2px !important; box-shadow: 0 0 20px rgba(255, 0, 0, 0.6) !important; transition: all 0.3s ease !important; height: 50px !important; }
+        .stButton > button:hover { transform: scale(1.05) !important; box-shadow: 0 0 30px rgba(255, 69, 0, 1), 0 0 10px #fff inset !important; background: linear-gradient(45deg, #ff0000, #ff7300) !important; border-color: #ffeb3b !important; color: #fff !important; }
+        .stTable { background-color: rgba(20,0,0,0.8) !important; border-radius: 10px; overflow: hidden; border: 1px solid #ff4500 !important; box-shadow: 0 0 15px rgba(255,0,0,0.4) !important; }
+        .stTable th { background-color: #550000 !important; color: #ffeb3b !important; border-bottom: 2px solid #ff4500 !important; text-align: center !important; text-shadow: 0 0 5px #ff0000 !important; }
+        .stTable td { border-bottom: 1px solid rgba(255, 69, 0, 0.3) !important; text-align: center !important; color: #ffffff !important; font-weight: bold !important; text-shadow: 0 0 5px #ff4500 !important; }
         .stAlert { background-color: rgba(20,0,0,0.9) !important; color: #ffeb3b !important; border: 1px solid #ff4500 !important; box-shadow: 0 0 10px rgba(255,0,0,0.5) !important;}
-        
-        /* Box Report Card Info */
         .report-card { background: rgba(20,0,0,0.8) !important; border: 1px solid #ff4500 !important; box-shadow: 0 0 15px rgba(255,0,0,0.4) !important; }
         .report-card div { color: #fff !important; text-shadow: 0 0 5px rgba(255,255,255,0.5); }
         .year-tag { background: #550000 !important; color: #ffeb3b !important; border: 1px solid #ff4500 !important; }
-        
-        /* Box Tổng kết Info */
         .summary-item { background: rgba(20,0,0,0.8) !important; border: 1px solid #ff4500 !important; border-left: 4px solid #ff0000 !important; box-shadow: 0 0 10px rgba(255,0,0,0.3) !important; }
         .summary-val { color: #ffeb3b !important; text-shadow: 0 0 5px #ffeb3b; }
-        
-        /* Chân trang */
         .copyright { background: transparent !important; color: #ff4500 !important; text-shadow: 0 0 5px #ff0000; border-top: 1px dashed #ff4500; margin-top: 40px;}
     </style>
     """, unsafe_allow_html=True)
     
-    st.markdown('<div class="neon-title">🔥 ARENA XEM ĐIỂM 🔥<br><span style="font-size: 16px; color: #ffeb3b; text-shadow: none;">Trường PT DTNT THCS&THPT Tuy Đức</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="neon-title">🔥 TRA CỨU ĐIỂM SỐ 🔥<br><span style="font-size: 16px; color: #ffeb3b; text-shadow: none;">Trường PT DTNT THCS&THPT Tuy Đức</span></div>', unsafe_allow_html=True)
     
     default_year = get_current_year_config(db)
-    current_fee = get_activation_fee(db) # Lấy dữ liệu phí từ DB
-    fee_k = current_fee // 1000 # Rút gọn (ví dụ 15000 -> 15)
+    current_fee = get_activation_fee(db) 
+    fee_k = current_fee // 1000 
 
     if 'show_activation' not in st.session_state:
         st.session_state.show_activation = False
@@ -552,15 +458,14 @@ def view_student(db):
 
         if st.session_state.get('show_activation'):
             temp_mid = st.session_state.get('temp_mid', '')
-            fee_formatted = f"{current_fee:,}".replace(',', '.') # Format hiển thị (vd: 15.000)
+            fee_formatted = f"{current_fee:,}".replace(',', '.')
             
             st.markdown("""
             <div style="background-color: rgba(20,0,0,0.8); border: 2px solid #ff4500; border-radius: 12px; padding: 20px; text-align: center; margin-top: 15px; box-shadow: 0 0 20px rgba(255,0,0,0.4);">
                 <h3 style="color: #ffeb3b; text-shadow: 0 0 10px #ff0000; margin-bottom: 10px; text-transform: uppercase;">🚀 Hướng dẫn kích hoạt tài khoản</h3>
-                <p style="color: #fff; font-size: 15px; margin-bottom: 20px;">Sử dụng App Ngân hàng quét mã QR bên dưới.<br><i style="color: #4CAF50;">(Hệ thống đã tự động điền Mã Học Sinh vào nội dung chuyển khoản)</i></p><br><i style="color: #4CAF50;">QUAN TRỌNG: NỘI DUNG CHUYỂN KHOẢN LÀ MÃ HỌC SINH</i></p>
+                <p style="color: #fff; font-size: 15px; margin-bottom: 20px;">Sử dụng App Ngân hàng quét mã QR bên dưới.<br><i style="color: #4CAF50;">(Hệ thống đã tự động điền Mã Học Sinh vào nội dung chuyển khoản)</i></p>
             """, unsafe_allow_html=True)
             
-            # API VietQR tự động nhúng Số tiền lấy từ Cấu Hình
             qr_url = f"https://img.vietqr.io/image/agribank-5300215042850-compact2.png?amount={current_fee}&addInfo={temp_mid}&accountName=LUONG%20VAN%20GIOI"
             
             col1, col2, col3 = st.columns([1, 2, 1])
@@ -577,7 +482,7 @@ def view_student(db):
                     <p style="margin: 8px 0; color: #fff; font-size: 15px;">💰 Số tiền: <b style="color: #ff9800;">{fee_formatted} VNĐ</b></p>
                     <p style="margin: 8px 0; color: #fff; font-size: 15px;">📝 Nội dung CK: <b style="color: #ff4500; font-size: 18px; background: rgba(255,69,0,0.2); padding: 2px 8px; border-radius: 4px;">{temp_mid}</b></p>
                 </div>
-                <p style="color: #ff9999; margin-top: 15px; font-size: 13px;"><i>* Sau khi chuyển khoản thành công, vui lòng chụp màn hình gửi Zalo <b>0383477162</b> hoặc nhắn mã học sinh gửi <b>0383477162</b> và đợi ít phút để Admin duyệt!</i></p>
+                <p style="color: #ff9999; margin-top: 15px; font-size: 13px;"><i>* Sau khi CK thành công, vui lòng chụp màn hình gửi Zalo <b>0383477162</b> để Admin duyệt!</i></p>
             </div>
             """, unsafe_allow_html=True)
             
