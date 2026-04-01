@@ -3,8 +3,6 @@ import pandas as pd
 import firebase_admin
 from firebase_admin import credentials, firestore
 import io
-import os
-import json
 from openpyxl import load_workbook
 
 # --- 1. CẤU HÌNH & DANH SÁCH NĂM ---
@@ -12,28 +10,18 @@ st.set_page_config(page_title="Hồ Sơ Học Tập Số", page_icon="🎓", lay
 
 YEAR_LIST = [f"{y}-{y+1}" for y in range(2025, 2030)]
 
-
-
 def init_firebase():
     if not firebase_admin._apps:
         try:
-            # 1. Ưu tiên lấy từ biến môi trường của Render (FIREBASE_JSON)
-            if "FIREBASE_JSON" in os.environ:
-                key_dict = json.loads(os.environ["FIREBASE_JSON"])
-                if "private_key" in key_dict:
-                    key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
-            
-            # 2. Nếu không có (chạy local), quay về dùng st.secrets mặc định
-            else:
-                key_dict = dict(st.secrets["firebase"])
-                key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
-            
+            key_dict = dict(st.secrets["firebase"])
+            key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
             cred = credentials.Certificate(key_dict)
             firebase_admin.initialize_app(cred)
         except Exception as e:
             st.error(f"Lỗi kết nối Firebase: {e}")
             st.stop()
     return firestore.client()
+
 # --- 2. CSS GIAO DIỆN (DÀNH CHO TOÀN TRANG & ADMIN) ---
 st.markdown("""
 <style>
