@@ -8,7 +8,7 @@ import os
 import json
 
 # --- 1. CẤU HÌNH & DANH SÁCH NĂM ---
-st.set_page_config(page_title="Hồ Sơ Học Tập Số", page_icon="🎓", layout="wide")
+st.set_page_config(page_title="Xem điểm online", page_icon="🎓", layout="wide")
 
 YEAR_LIST = [f"{y}-{y+1}" for y in range(2025, 2030)]
 
@@ -422,7 +422,7 @@ def view_student(db):
     </style>
     """, unsafe_allow_html=True)
     
-    st.markdown('<div class="neon-title">🔥 TRA CỨU ĐIỂM SỐ 🔥<br><span style="font-size: 16px; color: #ffeb3b; text-shadow: none;">Trường PT DTNT THCS&THPT Tuy Đức</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="neon-title">ARENA XEM ĐIỂM 🔥<br><span style="font-size: 16px; color: #ffeb3b; text-shadow: none;">Trường PT DTNT THCS&THPT Tuy Đức</span></div>', unsafe_allow_html=True)
     
     default_year = get_current_year_config(db)
     current_fee = get_activation_fee(db) 
@@ -463,7 +463,7 @@ def view_student(db):
             st.markdown("""
             <div style="background-color: rgba(20,0,0,0.8); border: 2px solid #ff4500; border-radius: 12px; padding: 20px; text-align: center; margin-top: 15px; box-shadow: 0 0 20px rgba(255,0,0,0.4);">
                 <h3 style="color: #ffeb3b; text-shadow: 0 0 10px #ff0000; margin-bottom: 10px; text-transform: uppercase;">🚀 Hướng dẫn kích hoạt tài khoản</h3>
-                <p style="color: #fff; font-size: 15px; margin-bottom: 20px;">Sử dụng App Ngân hàng quét mã QR bên dưới.<br><i style="color: #4CAF50;">(Hệ thống đã tự động điền Mã Học Sinh vào nội dung chuyển khoản)</i></p>
+                <p style="color: #fff; font-size: 15px; margin-bottom: 20px;">Sử dụng App Ngân hàng quét mã QR bên dưới.<br><i style="color: #4CAF50;">(Hệ thống đã tự động điền Mã Học Sinh vào nội dung chuyển khoản)</i><br><i style="color: #4CAF50;">QUAN TRỌNG: Nhớ nhập đúng Mã Học Sinh vào nội dung chuyển khoản</i></p>
             """, unsafe_allow_html=True)
             
             qr_url = f"https://img.vietqr.io/image/agribank-5300215042850-compact2.png?amount={current_fee}&addInfo={temp_mid}&accountName=LUONG%20VAN%20GIOI"
